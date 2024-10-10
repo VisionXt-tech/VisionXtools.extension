@@ -1,0 +1,8 @@
+layout:
+  - ProjectParameterInfo
+  - ViewTemplateInfo
+  - FilterInfo
+  - LinkWorksetInfo
+  - LinkWorksetChange
+  - LinkPhaseInfo
+  - BasePointLink
