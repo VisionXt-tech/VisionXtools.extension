@@ -86,9 +86,8 @@ for data in door_data_sorted:
     mark_display = data['mark']
     door_id = data['id']
 
-    # Print with linkified element ID
-    print('Mark: {} - '.format(mark_display), end='')
-    output.linkify(door_id)
+    # Print mark and linkified element ID
+    print('Mark: {} - ID: {}'.format(mark_display, output.linkify(door_id)))
 
 output.print_md('---')
 output.print_md('\U00002705 **Selection completed successfully**')
