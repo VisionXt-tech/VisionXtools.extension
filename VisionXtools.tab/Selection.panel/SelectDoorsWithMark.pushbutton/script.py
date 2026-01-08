@@ -74,7 +74,7 @@ uidoc.Selection.SetElementIds(collection)
 # Output results
 output = script.get_output()
 output.set_height(600)
-output.print_md('# \U0001F6AA Doors Selected in Current View')
+output.print_md('# 🚪 Doors Selected in Current View')
 output.print_md('## Total Doors Found: {}'.format(len(doors)))
 output.print_md('---')
 output.print_md('## Door Marks List:')
@@ -90,4 +90,4 @@ for data in door_data_sorted:
     print('Mark: {} - ID: {}'.format(mark_display, output.linkify(door_id)))
 
 output.print_md('---')
-output.print_md('\U00002705 **Selection completed successfully**')
+output.print_md('✅ **Selection completed successfully**')
