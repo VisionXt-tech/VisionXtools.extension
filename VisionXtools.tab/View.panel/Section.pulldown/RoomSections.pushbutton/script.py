@@ -395,8 +395,14 @@ for name, tb in zip(tb_names, tb_list):
         break
 
 # Get title block dimensions and calculate available area
-tb_width = title_block.LookupParameter("Sheet Width").AsDouble()
-tb_height = title_block.LookupParameter("Sheet Height").AsDouble()
+width_param = title_block.LookupParameter("Sheet Width")
+height_param = title_block.LookupParameter("Sheet Height")
+
+if width_param is None or height_param is None:
+    forms.alert('Selected title block does not have Sheet Width/Height parameters.\n\nPlease select a different title block.', exitscript=True)
+
+tb_width = width_param.AsDouble()
+tb_height = height_param.AsDouble()
 
 # Account for margins (50mm = 0.164ft on each side)
 margin = 0.164
