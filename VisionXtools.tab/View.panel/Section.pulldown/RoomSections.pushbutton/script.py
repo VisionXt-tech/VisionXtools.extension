@@ -87,8 +87,25 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
         minor_width = width_x
         major_is_x = False
 
-    # Offset for section depth (500mm = 1.64 feet)
-    offset = 1.64
+    # Offset for section depth - convert 500mm to project units
+    # Get project units
+    try:
+        units = doc.GetUnits().GetFormatOptions(UnitType.UT_Length).DisplayUnits
+        if units == DisplayUnitType.DUT_MILLIMETERS:
+            offset = 500.0 / 304.8  # mm to feet
+        elif units == DisplayUnitType.DUT_METERS:
+            offset = 0.5 / 0.3048  # meters to feet
+        else:
+            offset = 1.64  # Default to feet
+    except:
+        units = doc.GetUnits().GetFormatOptions(SpecTypeId.Length).GetUnitTypeId()
+        if units == UnitTypeId.Millimeters:
+            offset = 500.0 / 304.8
+        elif units == UnitTypeId.Meters:
+            offset = 0.5 / 0.3048
+        else:
+            offset = 1.64
+
     print("DEBUG SECTION: Orientation: {}, Major axis: {}, Offset: {} ft".format(orientation, "X" if major_is_x else "Y", offset))
 
     # Set up transform based on orientation
@@ -335,6 +352,9 @@ else:
 if len(created_sections) == 0:
     forms.alert('No sections could be created', exitscript=True)
 
+# Regenerate document to update section outlines
+doc.Regenerate()
+
 # ===== PHASE 5: TITLE BLOCK SELECTION =====
 # Collect ALL title block family symbols (no filtering by size)
 title_blocks = FilteredElementCollector(doc)\
@@ -420,8 +440,11 @@ tb_height = height_param.AsDouble()
 
 # Account for margins (50mm = 0.164ft on each side)
 margin = 0.164
+# Reserve space for title block at bottom (50mm = 0.164ft)
+title_block_height = 0.164
+
 available_width = tb_width - 2 * margin
-available_height = tb_height - 2 * margin - 0.33  # Extra for title block
+available_height = tb_height - 2 * margin - title_block_height
 
 # ===== PHASE 6: CALCULATE VIEWPORT SIZES =====
 viewport_data = []
@@ -430,18 +453,29 @@ print("DEBUG: Title block dimensions - Width: {} ft, Height: {} ft".format(tb_wi
 print("DEBUG: Available area - Width: {} ft, Height: {} ft".format(available_width, available_height))
 
 for section in created_sections:
-    # Get section outline
-    outline = section.Outline
-    if outline:
-        section_width = outline.Max.U - outline.Min.U
-        section_height = outline.Max.V - outline.Min.V
+    # Get section CropBox to calculate viewport size
+    crop_box = section.CropBox
+    if crop_box:
+        # Calculate model space dimensions
+        crop_min = crop_box.Min
+        crop_max = crop_box.Max
+
+        # Calculate width and height in model space
+        model_width = crop_max.X - crop_min.X
+        model_height = crop_max.Y - crop_min.Y
+
+        # Convert to paper space using scale (scale is 1:20, so divide by 20)
+        scale = section.Scale
+        paper_width = model_width / scale
+        paper_height = model_height / scale
 
         # Add small padding (10mm = 0.033ft)
         padding = 0.033
-        vp_width = section_width + padding
-        vp_height = section_height + padding
+        vp_width = paper_width + padding
+        vp_height = paper_height + padding
 
-        print("DEBUG: Section '{}' - Width: {} ft, Height: {} ft".format(section.Name, vp_width, vp_height))
+        print("DEBUG: Section '{}' - Model: {}x{} ft, Scale: 1:{}, Paper: {}x{} ft".format(
+            section.Name, model_width, model_height, scale, vp_width, vp_height))
 
         viewport_data.append({
             'view': section,
@@ -450,7 +484,7 @@ for section in created_sections:
             'placed': False
         })
     else:
-        print("DEBUG: Section '{}' has no outline!".format(section.Name))
+        print("DEBUG: Section '{}' has no CropBox!".format(section.Name))
 
 print("DEBUG: Total viewports to place: {}".format(len(viewport_data)))
 
