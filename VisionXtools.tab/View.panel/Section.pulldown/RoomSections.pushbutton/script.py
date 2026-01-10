@@ -337,26 +337,43 @@ if len(title_blocks) == 0:
 tb_list = []
 tb_names = []
 for tb in title_blocks:
-    # Get sheet width and height parameters
-    width_param = tb.get_Parameter(BuiltInParameter.SHEET_WIDTH)
-    height_param = tb.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
+    # Try to get sheet width and height parameters
+    try:
+        width_param = tb.get_Parameter(BuiltInParameter.SHEET_WIDTH)
+        height_param = tb.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
 
-    if width_param and height_param:
-        width = width_param.AsDouble()
-        height = height_param.AsDouble()
+        # Get family and symbol names
+        family_name = tb.FamilyName if hasattr(tb, 'FamilyName') else 'Unknown'
+        symbol_param = tb.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM)
+        symbol_name = symbol_param.AsString() if symbol_param else 'Unknown'
 
-        # Convert to mm for display (feet to mm: * 304.8)
-        width_mm = int(width * 304.8)
-        height_mm = int(height * 304.8)
+        # Try to get dimensions
+        if width_param and height_param:
+            try:
+                width = width_param.AsDouble()
+                height = height_param.AsDouble()
+
+                # Convert to mm for display (feet to mm: * 304.8)
+                width_mm = int(width * 304.8)
+                height_mm = int(height * 304.8)
+
+                # Show with dimensions
+                display_name = "{} : {} ({} x {} mm)".format(family_name, symbol_name, width_mm, height_mm)
+            except:
+                # Dimensions not available, show without
+                display_name = "{} : {}".format(family_name, symbol_name)
+        else:
+            # Parameters not found, show without dimensions
+            display_name = "{} : {}".format(family_name, symbol_name)
 
         tb_list.append(tb)
-        family_name = tb.FamilyName if hasattr(tb, 'FamilyName') else 'Unknown'
-        symbol_name = tb.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
-        # Show dimensions in name for clarity
-        tb_names.append("{} : {} ({} x {} mm)".format(family_name, symbol_name, width_mm, height_mm))
+        tb_names.append(display_name)
+    except:
+        # Skip this title block if any error occurs
+        continue
 
 if len(tb_list) == 0:
-    forms.alert('No valid title blocks found in project.', exitscript=True)
+    forms.alert('No title blocks found in project.\n\nPlease load a title block family and try again.', exitscript=True)
 
 # Let user select any title block
 selected_tb_name = forms.ask_for_one_item(
