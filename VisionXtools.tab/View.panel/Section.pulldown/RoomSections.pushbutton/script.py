@@ -337,10 +337,11 @@ if len(title_blocks) == 0:
 tb_list = []
 tb_names = []
 for tb in title_blocks:
-    # Try to get sheet width and height parameters
+    # Try to get sheet width and height parameters by name
     try:
-        width_param = tb.get_Parameter(BuiltInParameter.SHEET_WIDTH)
-        height_param = tb.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
+        # Use LookupParameter with string names instead of BuiltInParameter
+        width_param = tb.LookupParameter("Sheet Width")
+        height_param = tb.LookupParameter("Sheet Height")
 
         # Get family and symbol names
         family_name = tb.FamilyName if hasattr(tb, 'FamilyName') else 'Unknown'
@@ -394,8 +395,8 @@ for name, tb in zip(tb_names, tb_list):
         break
 
 # Get title block dimensions and calculate available area
-tb_width = title_block.get_Parameter(BuiltInParameter.SHEET_WIDTH).AsDouble()
-tb_height = title_block.get_Parameter(BuiltInParameter.SHEET_HEIGHT).AsDouble()
+tb_width = title_block.LookupParameter("Sheet Width").AsDouble()
+tb_height = title_block.LookupParameter("Sheet Height").AsDouble()
 
 # Account for margins (50mm = 0.164ft on each side)
 margin = 0.164
