@@ -74,6 +74,9 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     width_y = bbox.Max.Y - bbox.Min.Y
     height_z = bbox.Max.Z - bbox.Min.Z
 
+    print("DEBUG SECTION: Room '{}' - Center: ({}, {}, {})".format(room_name, center.X, center.Y, center.Z))
+    print("DEBUG SECTION: Room dimensions - X: {} ft, Y: {} ft, Z: {} ft".format(width_x, width_y, height_z))
+
     # Determine major and minor axes
     if width_x >= width_y:
         major_width = width_x
@@ -86,6 +89,7 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
 
     # Offset for section depth (500mm = 1.64 feet)
     offset = 1.64
+    print("DEBUG SECTION: Orientation: {}, Major axis: {}, Offset: {} ft".format(orientation, "X" if major_is_x else "Y", offset))
 
     # Set up transform based on orientation
     if orientation == 'vertical':
@@ -162,6 +166,8 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
     row_height = 0
     gap = 0.033  # 10mm gap between viewports
 
+    print("DEBUG PACKING: Starting - avail_width: {}, avail_height: {}".format(available_width, available_height))
+
     for vp in viewport_data:
         if vp['placed']:
             continue
@@ -169,8 +175,11 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
         vp_w = vp['width']
         vp_h = vp['height']
 
+        print("DEBUG PACKING: Viewport {} x {} at pos ({}, {})".format(vp_w, vp_h, current_x, current_y))
+
         # Check if fits in current row
         if current_x + vp_w > available_width + margin:
+            print("DEBUG PACKING: Moving to next row")
             # Move to next row
             current_x = margin
             current_y += row_height + gap
@@ -178,10 +187,12 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
 
         # Check if fits vertically
         if current_y + vp_h > available_height + margin:
+            print("DEBUG PACKING: Sheet full - y:{} + h:{} > limit:{}".format(current_y, vp_h, available_height + margin))
             # Sheet is full
             break
 
         # Place viewport
+        print("DEBUG PACKING: Placed OK")
         placements.append({
             'viewport': vp,
             'x': current_x + vp_w / 2,  # Center point
@@ -193,6 +204,7 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
         current_x += vp_w + gap
         row_height = max(row_height, vp_h)
 
+    print("DEBUG PACKING: Placed {} viewports".format(len(placements)))
     return placements
 
 
@@ -413,6 +425,10 @@ available_height = tb_height - 2 * margin - 0.33  # Extra for title block
 
 # ===== PHASE 6: CALCULATE VIEWPORT SIZES =====
 viewport_data = []
+print("DEBUG: Calculating viewport sizes...")
+print("DEBUG: Title block dimensions - Width: {} ft, Height: {} ft".format(tb_width, tb_height))
+print("DEBUG: Available area - Width: {} ft, Height: {} ft".format(available_width, available_height))
+
 for section in created_sections:
     # Get section outline
     outline = section.Outline
@@ -425,12 +441,18 @@ for section in created_sections:
         vp_width = section_width + padding
         vp_height = section_height + padding
 
+        print("DEBUG: Section '{}' - Width: {} ft, Height: {} ft".format(section.Name, vp_width, vp_height))
+
         viewport_data.append({
             'view': section,
             'width': vp_width,
             'height': vp_height,
             'placed': False
         })
+    else:
+        print("DEBUG: Section '{}' has no outline!".format(section.Name))
+
+print("DEBUG: Total viewports to place: {}".format(len(viewport_data)))
 
 # ===== PHASE 7: CREATE SHEETS AND PLACE VIEWPORTS =====
 created_sheets = []
