@@ -324,15 +324,18 @@ if len(created_sections) == 0:
     forms.alert('No sections could be created', exitscript=True)
 
 # ===== PHASE 5: TITLE BLOCK SELECTION =====
-# Collect all title block family symbols
+# Collect ALL title block family symbols (no filtering by size)
 title_blocks = FilteredElementCollector(doc)\
     .OfCategory(BuiltInCategory.OST_TitleBlocks)\
     .WhereElementIsElementType()\
     .ToElements()
 
-# Filter for A2 size (594x420mm = 1.949ft x 1.378ft, allow 10% tolerance)
-a2_blocks = []
-a2_names = []
+if len(title_blocks) == 0:
+    forms.alert('No title blocks found in project.\n\nPlease load a title block family.', exitscript=True)
+
+# Build list of title blocks with dimensions for user selection
+tb_list = []
+tb_names = []
 for tb in title_blocks:
     # Get sheet width and height parameters
     width_param = tb.get_Parameter(BuiltInParameter.SHEET_WIDTH)
@@ -342,21 +345,24 @@ for tb in title_blocks:
         width = width_param.AsDouble()
         height = height_param.AsDouble()
 
-        # Check if approximately A2 (with 10% tolerance)
-        if (abs(width - 1.949) < 0.2 and abs(height - 1.378) < 0.2) or \
-           (abs(width - 1.378) < 0.2 and abs(height - 1.949) < 0.2):
-            a2_blocks.append(tb)
-            family_name = tb.FamilyName if hasattr(tb, 'FamilyName') else 'Unknown'
-            symbol_name = tb.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
-            a2_names.append("{} : {}".format(family_name, symbol_name))
+        # Convert to mm for display (feet to mm: * 304.8)
+        width_mm = int(width * 304.8)
+        height_mm = int(height * 304.8)
 
-if len(a2_blocks) == 0:
-    forms.alert('No A2 title blocks found in project.\n\nPlease load an A2 (594x420mm) title block family.', exitscript=True)
+        tb_list.append(tb)
+        family_name = tb.FamilyName if hasattr(tb, 'FamilyName') else 'Unknown'
+        symbol_name = tb.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
+        # Show dimensions in name for clarity
+        tb_names.append("{} : {} ({} x {} mm)".format(family_name, symbol_name, width_mm, height_mm))
 
+if len(tb_list) == 0:
+    forms.alert('No valid title blocks found in project.', exitscript=True)
+
+# Let user select any title block
 selected_tb_name = forms.ask_for_one_item(
-    a2_names,
-    default=a2_names[0],
-    prompt='Select A2 Title Block',
+    tb_names,
+    default=tb_names[0],
+    prompt='Select Title Block',
     title='Room Section Creator'
 )
 
@@ -365,7 +371,7 @@ if selected_tb_name is None:
 
 # Find selected title block
 title_block = None
-for name, tb in zip(a2_names, a2_blocks):
+for name, tb in zip(tb_names, tb_list):
     if name == selected_tb_name:
         title_block = tb
         break
