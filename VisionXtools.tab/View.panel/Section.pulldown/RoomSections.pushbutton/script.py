@@ -395,8 +395,26 @@ for name, tb in zip(tb_names, tb_list):
         break
 
 # Get title block dimensions and calculate available area
-width_param = title_block.LookupParameter("Sheet Width")
-height_param = title_block.LookupParameter("Sheet Height")
+# Try multiple methods to get sheet dimensions
+width_param = None
+height_param = None
+
+# Method 1: Try with BuiltInParameter
+try:
+    width_param = title_block.get_Parameter(BuiltInParameter.SHEET_WIDTH)
+    height_param = title_block.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
+except:
+    pass
+
+# Method 2: If not found, try with LookupParameter
+if width_param is None or height_param is None:
+    width_param = title_block.LookupParameter("Sheet Width")
+    height_param = title_block.LookupParameter("Sheet Height")
+
+# Method 3: If still not found, try with alternative names
+if width_param is None or height_param is None:
+    width_param = title_block.LookupParameter("Width")
+    height_param = title_block.LookupParameter("Height")
 
 if width_param is None or height_param is None:
     forms.alert('Selected title block does not have Sheet Width/Height parameters.\n\nPlease select a different title block.', exitscript=True)
