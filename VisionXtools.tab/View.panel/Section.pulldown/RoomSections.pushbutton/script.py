@@ -395,32 +395,49 @@ for name, tb in zip(tb_names, tb_list):
         break
 
 # Get title block dimensions and calculate available area
-# Try multiple methods to get sheet dimensions
+# Use specific BuiltInParameter IDs provided by Revit API
+# SHEET_WIDTH = -1007410, SHEET_HEIGHT = -1007411
+print("Debug: Attempting to access title block parameters...")
+print("Debug: Title block type: {}".format(type(title_block)))
+print("Debug: Title block Id: {}".format(title_block.Id))
+
 width_param = None
 height_param = None
 
-# Method 1: Try with BuiltInParameter
+# Method 1: Try with numeric BuiltInParameter IDs
 try:
-    width_param = title_block.get_Parameter(BuiltInParameter.SHEET_WIDTH)
-    height_param = title_block.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
-except:
-    pass
+    bip_width = System.Enum.ToObject(BuiltInParameter, -1007410)
+    bip_height = System.Enum.ToObject(BuiltInParameter, -1007411)
+    width_param = title_block.get_Parameter(bip_width)
+    height_param = title_block.get_Parameter(bip_height)
+    print("Debug: Method 1 (numeric IDs) - Width param: {}, Height param: {}".format(width_param, height_param))
+except Exception as e:
+    print("Debug: Method 1 failed - {}".format(e))
 
-# Method 2: If not found, try with LookupParameter
+# Method 2: Try with standard BuiltInParameter enum
 if width_param is None or height_param is None:
-    width_param = title_block.LookupParameter("Sheet Width")
-    height_param = title_block.LookupParameter("Sheet Height")
+    try:
+        width_param = title_block.get_Parameter(BuiltInParameter.SHEET_WIDTH)
+        height_param = title_block.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
+        print("Debug: Method 2 (enum) - Width param: {}, Height param: {}".format(width_param, height_param))
+    except Exception as e:
+        print("Debug: Method 2 failed - {}".format(e))
 
-# Method 3: If still not found, try with alternative names
+# Method 3: Try with LookupParameter
 if width_param is None or height_param is None:
-    width_param = title_block.LookupParameter("Width")
-    height_param = title_block.LookupParameter("Height")
+    try:
+        width_param = title_block.LookupParameter("Sheet Width")
+        height_param = title_block.LookupParameter("Sheet Height")
+        print("Debug: Method 3 (LookupParameter) - Width param: {}, Height param: {}".format(width_param, height_param))
+    except Exception as e:
+        print("Debug: Method 3 failed - {}".format(e))
 
-if width_param is None or height_param is None:
-    forms.alert('Selected title block does not have Sheet Width/Height parameters.\n\nPlease select a different title block.', exitscript=True)
+# Don't show alert - let the error trace show for debugging
+print("Debug: Final width_param: {}, height_param: {}".format(width_param, height_param))
 
 tb_width = width_param.AsDouble()
 tb_height = height_param.AsDouble()
+print("Debug: Successfully got dimensions - Width: {}, Height: {}".format(tb_width, tb_height))
 
 # Account for margins (50mm = 0.164ft on each side)
 margin = 0.164
