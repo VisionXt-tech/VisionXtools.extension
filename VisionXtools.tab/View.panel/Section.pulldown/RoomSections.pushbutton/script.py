@@ -356,9 +356,13 @@ try:
         else:
             room_name = ParaInst(room, "Name")
             section_errors.append("Room '{}' - Failed to create horizontal section".format(room_name))
-except:
+except Exception as e:
     t.RollBack()
-    forms.alert('Error creating sections', exitscript=True)
+    import traceback
+    print("ERROR DETAILS:")
+    print(str(e))
+    print(traceback.format_exc())
+    forms.alert('Error creating sections:\n\n{}'.format(str(e)), exitscript=True)
 else:
     t.Commit()
 
