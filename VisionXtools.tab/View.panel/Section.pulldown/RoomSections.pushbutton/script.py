@@ -122,12 +122,10 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
             # Section runs along X axis
             right = XYZ.BasisX
             section_width = major_width
-            section_depth = minor_width
         else:
             # Section runs along Y axis
             right = XYZ.BasisY
             section_width = major_width
-            section_depth = minor_width
 
         suffix = "V"
     else:
@@ -136,12 +134,10 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
             # Section runs along Y (minor)
             right = XYZ.BasisY
             section_width = minor_width
-            section_depth = major_width
         else:
             # Section runs along X (minor)
             right = XYZ.BasisX
             section_width = minor_width
-            section_depth = major_width
 
         suffix = "H"
 
@@ -157,15 +153,16 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     t.BasisZ = view_dir    # View direction (computed from cross product)
 
     # Create bounding box for section
+    # Section passes through center with fixed depth (like Cross Sections script)
     bbox_section = BoundingBoxXYZ()
     bbox_section.Transform = t
-    bbox_section.Min = XYZ(-section_width/2 - offset, -offset, -section_depth/2 - offset)
-    bbox_section.Max = XYZ(section_width/2 + offset, height_z + offset, section_depth/2 + offset)
+    bbox_section.Min = XYZ(-section_width/2 - offset, -offset, 0)
+    bbox_section.Max = XYZ(section_width/2 + offset, height_z + offset, offset)
 
     # Create section view
     try:
         section = ViewSection.CreateSection(doc, section_type.Id, bbox_section)
-        section.Scale = 20  # 1:20 scale
+        section.Scale = 100  # 1:100 scale
         # Clean name (remove special characters that might cause issues)
         clean_name = "{}_{}_{}_{}".format(
             room_name.replace(" ", "_"),
