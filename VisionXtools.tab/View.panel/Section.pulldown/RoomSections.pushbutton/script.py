@@ -111,21 +111,21 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     # Set up transform based on orientation
     # For a section view:
     # - BasisX = right direction (along section width)
-    # - BasisY = up direction
-    # - BasisZ = view direction (perpendicular to section, looking at it)
+    # - BasisY = up direction (always vertical)
+    # - BasisZ = view direction (perpendicular to section) = BasisX cross BasisY
+
+    up = XYZ.BasisZ  # Always up
 
     if orientation == 'vertical':
         # Section along major axis
         if major_is_x:
-            # Section runs along X, views from Y direction
+            # Section runs along X axis
             right = XYZ.BasisX
-            view_dir = XYZ.BasisY
             section_width = major_width
             section_depth = minor_width
         else:
-            # Section runs along Y, views from X direction
+            # Section runs along Y axis
             right = XYZ.BasisY
-            view_dir = XYZ.BasisX
             section_width = major_width
             section_depth = minor_width
 
@@ -133,26 +133,28 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     else:
         # Section along minor axis (horizontal)
         if major_is_x:
-            # Section runs along Y (minor), views from X direction
+            # Section runs along Y (minor)
             right = XYZ.BasisY
-            view_dir = XYZ.BasisX
             section_width = minor_width
             section_depth = major_width
         else:
-            # Section runs along X (minor), views from Y direction
+            # Section runs along X (minor)
             right = XYZ.BasisX
-            view_dir = XYZ.BasisY
             section_width = minor_width
             section_depth = major_width
 
         suffix = "H"
 
-    # Create transform
+    # Calculate view direction as cross product to ensure right-handed system
+    # BasisZ = BasisX cross BasisY
+    view_dir = right.CrossProduct(up)
+
+    # Create transform with proper right-handed coordinate system
     t = Transform.Identity
     t.Origin = center
-    t.BasisX = right          # Along section width
-    t.BasisY = XYZ.BasisZ     # Up direction
-    t.BasisZ = view_dir       # View direction (perpendicular to section)
+    t.BasisX = right       # Along section width
+    t.BasisY = up          # Up direction
+    t.BasisZ = view_dir    # View direction (computed from cross product)
 
     # Create bounding box for section
     bbox_section = BoundingBoxXYZ()
