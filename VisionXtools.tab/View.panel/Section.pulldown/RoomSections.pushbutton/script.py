@@ -159,13 +159,14 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     # Create bounding box for section
     # Section passes through center with dynamic depth
     # Far Clip = perpendicular room dimension + offset (to see borders)
+    # BoundingBox is in local coordinates (Transform.Origin = center)
     bbox_section = BoundingBoxXYZ()
     bbox_section.Transform = t
-    bbox_section.Min = XYZ(-section_width/2 - offset, 0, 0)
-    bbox_section.Max = XYZ(section_width/2 + offset, height_z, section_depth + offset)
+    bbox_section.Min = XYZ(-section_width/2 - offset, -height_z/2 - offset, 0)
+    bbox_section.Max = XYZ(section_width/2 + offset, height_z/2 + offset, section_depth + offset)
 
-    print("DEBUG BBOX: Width: {} ft, Height: {} ft, Depth: {} ft".format(
-        section_width + 2*offset, height_z, section_depth + offset))
+    print("DEBUG BBOX: Width: {} ft, Height: {} ft (from {} to {}), Depth: {} ft".format(
+        section_width + 2*offset, height_z + 2*offset, -height_z/2 - offset, height_z/2 + offset, section_depth + offset))
 
     # Create section view
     try:
