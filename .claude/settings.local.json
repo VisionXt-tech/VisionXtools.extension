@@ -6,7 +6,14 @@
       "Bash(powershell -Command:*)",
       "Skill(bim-automator)",
       "Skill(bim-automator:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix IronPython syntax error in SelectDoorsWithMark script\n\nReplaced Python 3 print\\(\\) end parameter with IronPython-compatible syntax.\nThe print statement now properly formats output with linkified element IDs.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(curl:*)",
+      "Bash(git commit:*)",
+      "Bash(python:*)",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
