@@ -39,7 +39,7 @@ def ParaInst(element, paraname):
     return value
 
 
-def create_section_for_room(room, section_type, counter, active_view, orientation='vertical'):
+def create_section_for_room(room, section_type, counter, active_view, orientation='vertical', crop_height=None):
     """
     Create a single section view for a room.
 
@@ -49,6 +49,7 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
         counter: Progressive counter
         active_view: Active view for bounding box
         orientation: 'vertical' (major axis) or 'horizontal' (minor axis)
+        crop_height: Crop view height in feet (optional, defaults to room height)
 
     Returns:
         ViewSection or None if creation fails
@@ -73,9 +74,6 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     width_x = bbox.Max.X - bbox.Min.X
     width_y = bbox.Max.Y - bbox.Min.Y
     height_z = bbox.Max.Z - bbox.Min.Z
-
-    print("DEBUG SECTION: Room '{}' - Center: ({}, {}, {})".format(room_name, center.X, center.Y, center.Z))
-    print("DEBUG SECTION: Room dimensions - X: {} ft, Y: {} ft, Z: {} ft".format(width_x, width_y, height_z))
 
     # Determine major and minor axes
     if width_x >= width_y:
@@ -105,8 +103,6 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
             offset = 0.5 / 0.3048
         else:
             offset = 1.64
-
-    print("DEBUG SECTION: Orientation: {}, Major axis: {}, Offset: {} ft".format(orientation, "X" if major_is_x else "Y", offset))
 
     # Set up transform based on orientation
     # For a section view:
@@ -160,13 +156,17 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     # Section passes through center with dynamic depth
     # Far Clip = perpendicular room dimension + offset (to see borders)
     # BoundingBox is in local coordinates (Transform.Origin = center)
+
+    # Use user-specified crop height if provided, otherwise use room height + offset
+    if crop_height is not None:
+        view_height = crop_height
+    else:
+        view_height = height_z + 2*offset
+
     bbox_section = BoundingBoxXYZ()
     bbox_section.Transform = t
-    bbox_section.Min = XYZ(-section_width/2 - offset, -height_z/2 - offset, 0)
-    bbox_section.Max = XYZ(section_width/2 + offset, height_z/2 + offset, section_depth + offset)
-
-    print("DEBUG BBOX: Width: {} ft, Height: {} ft (from {} to {}), Depth: {} ft".format(
-        section_width + 2*offset, height_z + 2*offset, -height_z/2 - offset, height_z/2 + offset, section_depth + offset))
+    bbox_section.Min = XYZ(-section_width/2 - offset, -view_height/2, 0)
+    bbox_section.Max = XYZ(section_width/2 + offset, view_height/2, section_depth + offset)
 
     # Create section view
     try:
@@ -204,8 +204,6 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
     row_height = 0
     gap = 0.033  # 10mm gap between viewports
 
-    print("DEBUG PACKING: Starting - avail_width: {}, avail_height: {}".format(available_width, available_height))
-
     for vp in viewport_data:
         if vp['placed']:
             continue
@@ -213,11 +211,8 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
         vp_w = vp['width']
         vp_h = vp['height']
 
-        print("DEBUG PACKING: Viewport {} x {} at pos ({}, {})".format(vp_w, vp_h, current_x, current_y))
-
         # Check if fits in current row
         if current_x + vp_w > available_width + margin:
-            print("DEBUG PACKING: Moving to next row")
             # Move to next row
             current_x = margin
             current_y += row_height + gap
@@ -225,12 +220,10 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
 
         # Check if fits vertically
         if current_y + vp_h > available_height + margin:
-            print("DEBUG PACKING: Sheet full - y:{} + h:{} > limit:{}".format(current_y, vp_h, available_height + margin))
             # Sheet is full
             break
 
         # Place viewport
-        print("DEBUG PACKING: Placed OK")
         placements.append({
             'viewport': vp,
             'x': current_x + vp_w / 2,  # Center point
@@ -242,7 +235,6 @@ def pack_viewports_on_sheet(viewport_data, available_width, available_height, ma
         current_x += vp_w + gap
         row_height = max(row_height, vp_h)
 
-    print("DEBUG PACKING: Placed {} viewports".format(len(placements)))
     return placements
 
 
@@ -339,6 +331,22 @@ for name, vt in zip(section_names, section_types):
         section_type = vt
         break
 
+# ===== PHASE 3.5: CROP HEIGHT SELECTION =====
+# Ask user for crop view height in millimeters
+crop_heights_mm = [2500, 3000, 3500, 4000, 4500, 5000, 6000, 8000]
+selected_crop_height_mm = forms.ask_for_one_item(
+    crop_heights_mm,
+    default=3000,
+    prompt='Select Crop View Height (mm)',
+    title='Room Section Creator'
+)
+
+if selected_crop_height_mm is None:
+    forms.alert('No crop height selected', exitscript=True)
+
+# Convert mm to feet (Revit internal units)
+crop_height_ft = selected_crop_height_mm / 304.8
+
 # ===== PHASE 4: CREATE SECTIONS =====
 created_sections = []
 section_errors = []
@@ -350,7 +358,7 @@ t.Start()
 try:
     for counter, room in enumerate(rooms, start=1):
         # Create vertical section (along major axis)
-        section_v = create_section_for_room(room, section_type, counter, active_view, 'vertical')
+        section_v = create_section_for_room(room, section_type, counter, active_view, 'vertical', crop_height_ft)
         if section_v:
             created_sections.append(section_v)
         else:
@@ -358,7 +366,7 @@ try:
             section_errors.append("Room '{}' - Failed to create vertical section".format(room_name))
 
         # Create horizontal section (along minor axis)
-        section_h = create_section_for_room(room, section_type, counter, active_view, 'horizontal')
+        section_h = create_section_for_room(room, section_type, counter, active_view, 'horizontal', crop_height_ft)
         if section_h:
             created_sections.append(section_h)
         else:
@@ -470,9 +478,6 @@ available_height = tb_height - 2 * margin - title_block_height
 
 # ===== PHASE 6: CALCULATE VIEWPORT SIZES =====
 viewport_data = []
-print("DEBUG: Calculating viewport sizes...")
-print("DEBUG: Title block dimensions - Width: {} ft, Height: {} ft".format(tb_width, tb_height))
-print("DEBUG: Available area - Width: {} ft, Height: {} ft".format(available_width, available_height))
 
 for section in created_sections:
     # Get section CropBox to calculate viewport size
@@ -486,7 +491,7 @@ for section in created_sections:
         model_width = crop_max.X - crop_min.X
         model_height = crop_max.Y - crop_min.Y
 
-        # Convert to paper space using scale (scale is 1:20, so divide by 20)
+        # Convert to paper space using scale (scale is 1:50, so divide by 50)
         scale = section.Scale
         paper_width = model_width / scale
         paper_height = model_height / scale
@@ -496,19 +501,12 @@ for section in created_sections:
         vp_width = paper_width + padding
         vp_height = paper_height + padding
 
-        print("DEBUG: Section '{}' - Model: {}x{} ft, Scale: 1:{}, Paper: {}x{} ft".format(
-            section.Name, model_width, model_height, scale, vp_width, vp_height))
-
         viewport_data.append({
             'view': section,
             'width': vp_width,
             'height': vp_height,
             'placed': False
         })
-    else:
-        print("DEBUG: Section '{}' has no CropBox!".format(section.Name))
-
-print("DEBUG: Total viewports to place: {}".format(len(viewport_data)))
 
 # ===== PHASE 7: CREATE SHEETS AND PLACE VIEWPORTS =====
 created_sheets = []
