@@ -122,10 +122,12 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
             # Section runs along X axis
             right = XYZ.BasisX
             section_width = major_width
+            section_depth = minor_width  # Depth perpendicular to section
         else:
             # Section runs along Y axis
             right = XYZ.BasisY
             section_width = major_width
+            section_depth = minor_width  # Depth perpendicular to section
 
         suffix = "V"
     else:
@@ -134,10 +136,12 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
             # Section runs along Y (minor)
             right = XYZ.BasisY
             section_width = minor_width
+            section_depth = major_width  # Depth perpendicular to section
         else:
             # Section runs along X (minor)
             right = XYZ.BasisX
             section_width = minor_width
+            section_depth = major_width  # Depth perpendicular to section
 
         suffix = "H"
 
@@ -153,16 +157,20 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     t.BasisZ = view_dir    # View direction (computed from cross product)
 
     # Create bounding box for section
-    # Section passes through center with fixed depth (like Cross Sections script)
+    # Section passes through center with dynamic depth
+    # Far Clip = perpendicular room dimension + offset (to see borders)
     bbox_section = BoundingBoxXYZ()
     bbox_section.Transform = t
-    bbox_section.Min = XYZ(-section_width/2 - offset, -offset, 0)
-    bbox_section.Max = XYZ(section_width/2 + offset, height_z + offset, offset)
+    bbox_section.Min = XYZ(-section_width/2 - offset, 0, 0)
+    bbox_section.Max = XYZ(section_width/2 + offset, height_z, section_depth + offset)
+
+    print("DEBUG BBOX: Width: {} ft, Height: {} ft, Depth: {} ft".format(
+        section_width + 2*offset, height_z, section_depth + offset))
 
     # Create section view
     try:
         section = ViewSection.CreateSection(doc, section_type.Id, bbox_section)
-        section.Scale = 100  # 1:100 scale
+        section.Scale = 50  # 1:50 scale
         # Clean name (remove special characters that might cause issues)
         clean_name = "{}_{}_{}_{}".format(
             room_name.replace(" ", "_"),
