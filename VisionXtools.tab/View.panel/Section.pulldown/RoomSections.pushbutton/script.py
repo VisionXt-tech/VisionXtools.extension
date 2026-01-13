@@ -109,14 +109,23 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     print("DEBUG SECTION: Orientation: {}, Major axis: {}, Offset: {} ft".format(orientation, "X" if major_is_x else "Y", offset))
 
     # Set up transform based on orientation
+    # For a section view:
+    # - BasisX = right direction (along section width)
+    # - BasisY = up direction
+    # - BasisZ = view direction (perpendicular to section, looking at it)
+
     if orientation == 'vertical':
         # Section along major axis
         if major_is_x:
-            view_direction = XYZ.BasisY
+            # Section runs along X, views from Y direction
+            right = XYZ.BasisX
+            view_dir = XYZ.BasisY
             section_width = major_width
             section_depth = minor_width
         else:
-            view_direction = XYZ.BasisX
+            # Section runs along Y, views from X direction
+            right = XYZ.BasisY
+            view_dir = XYZ.BasisX
             section_width = major_width
             section_depth = minor_width
 
@@ -124,11 +133,15 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     else:
         # Section along minor axis (horizontal)
         if major_is_x:
-            view_direction = XYZ.BasisX
+            # Section runs along Y (minor), views from X direction
+            right = XYZ.BasisY
+            view_dir = XYZ.BasisX
             section_width = minor_width
             section_depth = major_width
         else:
-            view_direction = XYZ.BasisY
+            # Section runs along X (minor), views from Y direction
+            right = XYZ.BasisX
+            view_dir = XYZ.BasisY
             section_width = minor_width
             section_depth = major_width
 
@@ -137,9 +150,9 @@ def create_section_for_room(room, section_type, counter, active_view, orientatio
     # Create transform
     t = Transform.Identity
     t.Origin = center
-    t.BasisX = view_direction
-    t.BasisY = XYZ.BasisZ  # Up direction
-    t.BasisZ = view_direction.CrossProduct(XYZ.BasisZ)
+    t.BasisX = right          # Along section width
+    t.BasisY = XYZ.BasisZ     # Up direction
+    t.BasisZ = view_dir       # View direction (perpendicular to section)
 
     # Create bounding box for section
     bbox_section = BoundingBoxXYZ()
@@ -351,9 +364,6 @@ else:
 
 if len(created_sections) == 0:
     forms.alert('No sections could be created', exitscript=True)
-
-# Regenerate document to update section outlines
-doc.Regenerate()
 
 # ===== PHASE 5: TITLE BLOCK SELECTION =====
 # Collect ALL title block family symbols (no filtering by size)
