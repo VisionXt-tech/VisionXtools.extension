@@ -246,7 +246,7 @@ output.resize(1200,800)
 pvp = ParameterValueProvider(ElementId(634609))
 fng = FilterStringEquals()
 ruleValue = 'D_ESPORTAZIONI_IFC'
-fRule = FilterStringRule(pvp,fng,ruleValue,True)
+fRule = FilterStringRule(pvp,fng,ruleValue)
 
 filter = ElementParameterFilter(fRule)
 
