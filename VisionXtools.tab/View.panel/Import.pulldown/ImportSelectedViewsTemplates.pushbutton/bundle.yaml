@@ -1,0 +1,5 @@
+tooltip: |
+  Import Selected View Templates from a Open Revit Project.
+
+  NOTE: No schedule view template will be transferred. Same name view templates will be overriden and views will be updated.
+
