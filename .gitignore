@@ -1,3 +1,9 @@
+# Local dev tooling (Claude Code, MCP): contains API keys and machine-specific paths
+.mcp.json
+.claude/
+CLAUDE.md
+HANDOFF.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -14,8 +20,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# lib/ is NOT ignored: pyRevit loads shared modules from <extension>/lib
 parts/
 sdist/
 var/
