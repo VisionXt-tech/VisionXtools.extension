@@ -1,6 +1,6 @@
 # VisionXtools.extension
 
-Estensione pyRevit di VisionXt: aggiunge a Revit i tab **VisionXtools** e **AnasL4**.
+Estensione pyRevit di VisionXt: aggiunge a Revit il tab **VisionXtools**.
 
 **Prerequisito:** pyRevit già installato (il tab *pyRevit* compare in Revit).
 
@@ -11,7 +11,7 @@ Estensione pyRevit di VisionXt: aggiunge a Revit i tab **VisionXtools** e **Anas
 2. Doppio clic sul file scaricato. Se Windows avvisa che l'autore non è verificabile,
    scegli **Ulteriori informazioni** → **Esegui comunque**.
 3. Aspetta il messaggio **INSTALLAZIONE COMPLETATA** e chiudi la finestra nera.
-4. Apri Revit: compaiono i tab **VisionXtools** e **AnasL4**.
+4. Apri Revit: compare il tab **VisionXtools**.
    Se Revit era già aperto: tab **pyRevit** → **Reload**.
 
 Il file controlla che pyRevit ci sia, scarica l'estensione e verifica che sia arrivata tutta.
@@ -29,7 +29,7 @@ Il file controlla che pyRevit ci sia, scarica l'estensione e verifica che sia ar
    Se alla fine compare `Error: Failed to save config to "C:\ProgramData\pyRevit\pyRevit_config.ini" ... Access ... denied`,
    **ignoralo**: succede quando pyRevit è installato per tutti gli utenti, ma l'estensione è stata installata lo stesso.
 
-4. Apri Revit: compaiono i tab **VisionXtools** e **AnasL4**.
+4. Apri Revit: compare il tab **VisionXtools**.
 
 Non serve installare Git: pyRevit scarica l'estensione da solo in
 `%APPDATA%\pyRevit\Extensions\VisionXtools.extension`.
@@ -49,14 +49,14 @@ In Revit: tab **VisionXtools** → pannello **About** → **Update**, oppure tab
 
 Con questo metodo il pulsante **Update** non aggiorna l'estensione: per aggiornarla ripeti i passi 1–3.
 
-## Se i tab non compaiono
+## Se il tab non compare
 
 - Tab **pyRevit** → **Reload**.
 - Controlla che esista la cartella `%APPDATA%\pyRevit\Extensions\VisionXtools.extension`
-  (incolla il percorso nella barra di Esplora file) e che contenga `VisionXtools.tab` e `AnasL4.tab`.
+  (incolla il percorso nella barra di Esplora file) e che contenga `VisionXtools.tab`.
 - Nell'installazione manuale, controlla di non avere una cartella dentro l'altra
-  (`VisionXtools.extension\VisionXtools.extension-main\...`): i file `VisionXtools.tab` e `AnasL4.tab`
-  devono stare direttamente dentro `VisionXtools.extension`.
+  (`VisionXtools.extension\VisionXtools.extension-main\...`): la cartella `VisionXtools.tab`
+  deve stare direttamente dentro `VisionXtools.extension`.
 - Non cambiare il motore Python in pyRevit: gli strumenti girano sul motore predefinito.
 
 ## Disinstallazione

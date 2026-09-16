@@ -39,7 +39,7 @@ if exist "%EXTDIR%\VisionXtools.tab" (
     echo   INSTALLAZIONE COMPLETATA
     echo ====================================================
     echo.
-    echo Apri Revit: troverai i tab VisionXtools e AnasL4.
+    echo Apri Revit: troverai il tab VisionXtools.
     echo Se Revit e' gia' aperto: tab pyRevit ^> Reload.
     echo.
     pause
