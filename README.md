@@ -63,3 +63,15 @@ Con questo metodo il pulsante **Update** non aggiorna l'estensione: per aggiorna
 
 Con Revit chiuso, cancella la cartella `%APPDATA%\pyRevit\Extensions\VisionXtools.extension`
 (o quella scelta nell'installazione manuale).
+
+## Licenza
+
+© VisionXt Srl — [www.visionxt.tech](https://www.visionxt.tech)
+
+Rilasciato con licenza [PolyForm Internal Use 1.0.0](LICENSE):
+
+- **Consentito:** usare e modificare gli strumenti per il lavoro interno della propria azienda, anche su commesse per clienti.
+- **Non consentito:** ridistribuire, rivendere o cedere il software (o versioni modificate) ad altri.
+
+Le versioni pubblicate fino al commit `10368f0` restano sotto licenza MIT.
+Per altri usi: [www.visionxt.tech](https://www.visionxt.tech).
