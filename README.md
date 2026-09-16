@@ -4,7 +4,19 @@ Estensione pyRevit di VisionXt: aggiunge a Revit i tab **VisionXtools** e **Anas
 
 **Prerequisito:** pyRevit già installato (il tab *pyRevit* compare in Revit).
 
-## Installazione (consigliata)
+## Installazione (consigliata): doppio clic
+
+1. Apri [`Installa_VisionXtools.bat`](Installa_VisionXtools.bat) e scaricalo con il pulsante
+   **Download raw file** (l'icona con la freccia in alto a destra).
+2. Doppio clic sul file scaricato. Se Windows avvisa che l'autore non è verificabile,
+   scegli **Ulteriori informazioni** → **Esegui comunque**.
+3. Aspetta il messaggio **INSTALLAZIONE COMPLETATA** e chiudi la finestra nera.
+4. Apri Revit: compaiono i tab **VisionXtools** e **AnasL4**.
+   Se Revit era già aperto: tab **pyRevit** → **Reload**.
+
+Il file controlla che pyRevit ci sia, scarica l'estensione e verifica che sia arrivata tutta.
+
+## Installazione da riga di comando (alternativa)
 
 1. Chiudi Revit.
 2. Apri il **Prompt dei comandi** (tasto Windows → scrivi `cmd` → Invio).
