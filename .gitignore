@@ -4,6 +4,9 @@
 CLAUDE.md
 HANDOFF.md
 
+# Private reference docs for building automations (never pushed)
+docs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
