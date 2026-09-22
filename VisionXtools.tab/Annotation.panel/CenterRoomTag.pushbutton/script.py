@@ -98,6 +98,14 @@ def shape_center(loops):
     return best or c
 
 
+def mid_z(room):
+    """Mid height of the room, used to center tags in section views."""
+    bbox = room.get_BoundingBox(None)
+    if bbox:
+        return (bbox.Min.Z + bbox.Max.Z) / 2.0
+    return room.Location.Point.Z + (room.UnboundedHeight or 0.0) / 2.0
+
+
 doc = revit.doc
 opts = DB.SpatialElementBoundaryOptions()
 rooms = [
@@ -128,11 +136,21 @@ if rooms:
 
             doc.Regenerate()
 
+            view = doc.ActiveView
+            right, up = view.RightDirection, view.UpDirection
+
             for tag in tags:
                 room = tag.Room  # None for tags of linked rooms
-                if not room or not room.Location:
+                if not room or not room.Location or not tag.Location:
                     continue
-                target, cur = room.Location.Point, tag.Location.Point
-                tag.Location.Move(DB.XYZ(target.X - cur.X, target.Y - cur.Y, 0))
+                p = room.Location.Point
+                target = DB.XYZ(p.X, p.Y, mid_z(room))
+                delta = target - tag.Location.Point
+                # keep the tag on the view plane: in a plan this is the XY move,
+                # in a section it centers horizontally and vertically instead
+                move = right.Multiply(delta.DotProduct(right)).Add(
+                    up.Multiply(delta.DotProduct(up))
+                )
+                tag.Location.Move(move)
     except Exception as ex:
         logger.error("Center Room Tags failed: {}".format(ex))

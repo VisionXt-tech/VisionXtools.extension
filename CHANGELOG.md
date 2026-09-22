@@ -3,6 +3,10 @@
 Il pulsante **About > Version** legge questo file: la prima sezione e' la versione installata.
 Formato di ogni sezione: `## <versione> - <data>`, seguita dall'elenco delle novita'.
 
+## 1.1.1 - 22/09/2026
+
+- Center Room Tags: i tag ora si centrano anche nelle viste di sezione e di prospetto, in orizzontale e in altezza sulla mezzeria della stanza. Prima lo spostamento avveniva solo in pianta, quindi nelle sezioni il tag restava fermo.
+
 ## 1.1.0 - 22/09/2026
 
 - Center Room Tags: il punto di riferimento della stanza e il tag vengono centrati sulla forma della stanza (baricentro dell'area, fori esclusi) invece che sul centro della bounding box.
