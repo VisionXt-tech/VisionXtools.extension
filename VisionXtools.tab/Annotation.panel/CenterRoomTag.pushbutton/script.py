@@ -1,43 +1,138 @@
-"""Center all Room Tags by Locations of the Rooms"""
+"""Center Room reference points and Room Tags based on the room shape"""
 
-__title__= 'Center\nRoom Tags'
-__author__= 'Luca Rosati'
+__title__ = "Center\nRoom Tags"
+__author__ = "Luca Rosati"
+
+import math
 
 from pyrevit import revit, DB
 from pyrevit import script
 
-
-output = script.get_output()
 logger = script.get_logger()
 
+GRID = 25  # fallback search resolution per axis
 
-filt = DB.ElementCategoryFilter(DB.BuiltInCategory.OST_RoomTags)
-collect = DB.FilteredElementCollector(revit.doc, revit.doc.ActiveView.Id).WhereElementIsNotElementType()
-collect = collect.WherePasses(filt).ToElements()
 
-categories = [DB.BuiltInCategory.OST_Rooms]
-rooms = [x for x in revit.query.get_elements_by_categories(categories) if x.Area > 0]
+def room_loops(room, opts):
+    """Boundary loops as lists of (x, y), curves tessellated."""
+    loops = []
+    for loop in room.GetBoundarySegments(opts) or []:
+        pts = []
+        for seg in loop:
+            pts.extend((p.X, p.Y) for p in list(seg.GetCurve().Tessellate())[:-1])
+        if len(pts) >= 3:
+            loops.append(pts)
+    return loops
+
+
+def edges(pts):
+    return zip(pts, pts[1:] + pts[:1])
+
+
+def loop_area_centroid(pts):
+    a = cx = cy = 0.0
+    for (x0, y0), (x1, y1) in edges(pts):
+        c = x0 * y1 - x1 * y0
+        a += c
+        cx += (x0 + x1) * c
+        cy += (y0 + y1) * c
+    if not a:
+        return 0.0, 0.0, 0.0
+    return a / 2.0, cx / (3.0 * a), cy / (3.0 * a)
+
+
+def centroid(loops):
+    """Area centroid; largest loop is the outer boundary, the others are holes."""
+    parts = sorted((loop_area_centroid(p) for p in loops), key=lambda t: -abs(t[0]))
+    A = X = Y = 0.0
+    for i, (a, cx, cy) in enumerate(parts):
+        a = abs(a) if i == 0 else -abs(a)
+        A += a
+        X += a * cx
+        Y += a * cy
+    return (X / A, Y / A) if A else None
+
+
+def inside(x, y, loops):
+    """Even-odd rule over all loops, so holes are excluded."""
+    c = False
+    for pts in loops:
+        for (x0, y0), (x1, y1) in edges(pts):
+            if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+                c = not c
+    return c
+
+
+def clearance(x, y, loops):
+    best = float("inf")
+    for pts in loops:
+        for (x0, y0), (x1, y1) in edges(pts):
+            dx, dy = x1 - x0, y1 - y0
+            ll = dx * dx + dy * dy
+            t = max(0.0, min(1.0, ((x - x0) * dx + (y - y0) * dy) / ll)) if ll else 0.0
+            best = min(best, math.hypot(x - x0 - t * dx, y - y0 - t * dy))
+    return best
+
+
+def shape_center(loops):
+    """Centroid if it sits well inside the room, else the most interior grid point.
+
+    ponytail: grid search is a coarse pole-of-inaccessibility (GRID^2 samples);
+    switch to polylabel if tags on very thin/complex rooms land off-center.
+    """
+    c = centroid(loops)
+    xs = [p[0] for pts in loops for p in pts]
+    ys = [p[1] for pts in loops for p in pts]
+    x0, y0 = min(xs), min(ys)
+    sx, sy = (max(xs) - x0) / GRID, (max(ys) - y0) / GRID
+    best, best_d = None, 0.0
+    for i in range(GRID):
+        for j in range(GRID):
+            x, y = x0 + (i + 0.5) * sx, y0 + (j + 0.5) * sy
+            if inside(x, y, loops):
+                d = clearance(x, y, loops)
+                if d > best_d:
+                    best, best_d = (x, y), d
+    if c and inside(c[0], c[1], loops) and clearance(c[0], c[1], loops) >= best_d / 2.0:
+        return c
+    return best or c
+
+
+doc = revit.doc
+opts = DB.SpatialElementBoundaryOptions()
+rooms = [
+    x
+    for x in revit.query.get_elements_by_categories([DB.BuiltInCategory.OST_Rooms])
+    if x.Area > 0
+]
+tags = (
+    DB.FilteredElementCollector(doc, doc.ActiveView.Id)
+    .OfCategory(DB.BuiltInCategory.OST_RoomTags)
+    .WhereElementIsNotElementType()
+    .ToElements()
+)
 
 if rooms:
-    with revit.Transaction("Center Rooms"):
-        for room in rooms:
-            bbox = room.get_BoundingBox(revit.doc.ActiveView)
-            center = (bbox.Max + bbox.Min) / 2.0
-            location = DB.UV(center.X, center.Y)
-            current_room = room.Location.Point
-            new_loc = center - current_room
-            room.Location.Move(new_loc)
+    try:
+        with revit.Transaction("Center Rooms and Tags"):
+            for room in rooms:
+                try:
+                    loops = room_loops(room, opts)
+                    center = shape_center(loops) if loops else None
+                    if not center:
+                        continue
+                    cur = room.Location.Point
+                    room.Location.Move(DB.XYZ(center[0] - cur.X, center[1] - cur.Y, 0))
+                except Exception as ex:
+                    logger.warning("Room {}: {}".format(room.Id, ex))
 
+            doc.Regenerate()
 
-        if collect:
-            with revit.Transaction("Center Tags"):
-                for room_tag in collect:
-                    room = room_tag.Room
-                    bbox = room.get_BoundingBox(revit.doc.ActiveView)
-                    center = (bbox.Max + bbox.Min) / 2.0
-                    location = DB.UV(center.X, center.Y)
-                    current_room = room.Location.Point
-                    current_tag = room_tag.Location.Point
-                    new_loc = center - current_tag
-                    room_tag.Location.Move(new_loc)
-    
+            for tag in tags:
+                room = tag.Room  # None for tags of linked rooms
+                if not room or not room.Location:
+                    continue
+                target, cur = room.Location.Point, tag.Location.Point
+                tag.Location.Move(DB.XYZ(target.X - cur.X, target.Y - cur.Y, 0))
+    except Exception as ex:
+        logger.error("Center Room Tags failed: {}".format(ex))

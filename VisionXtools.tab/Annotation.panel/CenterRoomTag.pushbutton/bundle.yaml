@@ -1,1 +1,1 @@
-tooltip: "Center all Room Tags by Locations of the Rooms"
+tooltip: "Move each Room reference point to the center of its shape (area centroid, or the most interior point for L/U-shaped rooms), then center the Room Tags of the active view on it"
