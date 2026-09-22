@@ -19,6 +19,7 @@ import RevitServices
 from RevitServices.Persistence import DocumentManager
 from RevitServices.Transactions import TransactionManager
 from pyrevit import forms
+from pyrevit import script
 
 doc =__revit__.ActiveUIDocument.Document
 uidoc =__revit__.ActiveUIDocument
@@ -36,9 +37,13 @@ for link in links:
     except:
         linkString.append("<Unloaded Link>")
 linkOfRoom = forms.SelectFromList.show(context = linkString,title = "Seleziona il link delle room", width  = 500, height = 500)
+if not linkOfRoom:
+    script.exit()
 linkInstance = links[linkString.index(linkOfRoom)]
 ######
 elemId = int(forms.ask_for_string(prompt = "Insert Linked Element ID", title = "Linked Element Id"))
+if not elemId:
+    script.exit()
 selection = linkInstance.GetLinkDocument().GetElement(ElementId(elemId))
 
 doc_v = FilteredElementCollector(doc).OfClass(View)

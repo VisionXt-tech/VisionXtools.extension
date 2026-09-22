@@ -55,6 +55,8 @@ value = forms.SelectFromList.show(
         title='Select Categories',
         multiselect=True
     )
+if not value:
+    script.exit()
 
 category =[]
 namer = []
@@ -90,6 +92,8 @@ value_ty = forms.SelectFromList.show(
         title='Select Type',
         multiselect=True
     )
+if not value_ty:
+    script.exit()
 
 result_ty =[]
 typ_name_result = []

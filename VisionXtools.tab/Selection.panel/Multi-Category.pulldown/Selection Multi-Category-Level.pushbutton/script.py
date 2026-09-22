@@ -49,6 +49,8 @@ level_n = forms.ask_for_one_item(
     default = level_ns[0],
     prompt='Select Level',
     title='Level Selector')
+if not level_n:
+    script.exit()
 
 for lev in levels:
 	if lev.Name == level_n:
@@ -84,6 +86,8 @@ res = forms.SelectFromList.show(
         group_selector_title='Select Discipline',
         multiselect=True
     )
+if not res:
+    script.exit()
 
 category =[]
 namer = []

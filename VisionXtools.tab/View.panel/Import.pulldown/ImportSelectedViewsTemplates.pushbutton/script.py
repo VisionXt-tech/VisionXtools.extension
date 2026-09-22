@@ -27,6 +27,8 @@ uidoc = __revit__.ActiveUIDocument
 
 # Select opened documents to transfer View Templates
 selProject = forms.select_open_docs(title="Select project/s to transfer View Templates", button_name='OK', width=500, multiple=True, filterfunc=None)
+if not selProject:
+    script.exit()
 
 # Filter Views
 viewsFilter = ElementCategoryFilter(BuiltInCategory.OST_Views)
@@ -58,6 +60,8 @@ viewTemplates = retrieveVT(selProject, False)
 
 # Display select view templates form
 vTemplates = forms.SelectFromList.show(viewTemplates.keys(), "Select one or more Viewtemplates to transfer to the Current Project", 600, 300, multiselect=True)
+if not vTemplates:
+    script.exit()
 
 # Collect all View Templates in the current document
 docTemplates = retrieveVT(doc, True)

@@ -77,6 +77,8 @@ else:
 	floorplanlist = forms.select_views(
 		title='Select FloorPlan View',
 		filterfunc=lambda x: x.ViewType == ViewType.FloorPlan)
+	if not floorplanlist:
+	    script.exit()
 	floorplan= floorplanlist[0]
 
 
@@ -92,6 +94,8 @@ level_n = forms.ask_for_one_item(
     default = level_ns[0],
     prompt='Select Level of Link',
     title='Link Level Selector')
+if not level_n:
+    script.exit()
 
 for lev in levels:
 	if lev.Name == level_n:
@@ -127,6 +131,8 @@ res = forms.SelectFromList.show(
         group_selector_title='Select Discipline',
         multiselect=False
     )
+if not res:
+    script.exit()
 
 category = []
 namer = []
@@ -184,6 +190,8 @@ tags_n = forms.ask_for_one_item(
     default = symbname[0],
     prompt='Select Family Tag',
     title='Family Tag Selector')
+if not tags_n:
+    script.exit()
 
 symb_selec = None
 
@@ -202,11 +210,15 @@ leader_option = forms.CommandSwitchWindow.show(
     ['Yes', 'No'],
      message='Do you want Add a Leader?',
 )
+if not leader_option:
+    script.exit()
 
 orientation_option = forms.CommandSwitchWindow.show(
     ['Horizontal', 'Vertical'],
      message='Select an Orientation',
 )
+if not orientation_option:
+    script.exit()
 
 leader_bool = None
 

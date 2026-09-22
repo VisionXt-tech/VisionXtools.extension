@@ -26,7 +26,10 @@ uidoc =  __revit__.ActiveUIDocument
 
 with forms.WarningBar(title='Pick Element:'):
 	sel = uidoc.Selection
-	selected = sel.PickObject(ObjectType.Element)
+	try:
+		selected = sel.PickObject(ObjectType.Element)
+	except OperationCanceledException:
+		script.exit()
 
 to_element = doc.GetElement(selected)
 
@@ -42,15 +45,21 @@ value = forms.ask_for_one_item(
     default= sortlist[0],
     prompt='Select Parameter',
     title='Select By Paramater ')
+if not value:
+    script.exit()
 
 selected_option = forms.CommandSwitchWindow.show(
     ['Yes', 'No'],
      message='Select in Active View?',
 )
+if not selected_option:
+    script.exit()
 selected_option1 = forms.CommandSwitchWindow.show(
     ['Yes', 'No'],
      message='Inverse Selection?',
 )
+if not selected_option1:
+    script.exit()
 
 el_cat = to_element.Category.Id
 
@@ -144,6 +153,7 @@ collection = List[ElementId](matched_fam_id)
 select = uidoc.Selection.SetElementIds(collection)
 
 from pyrevit import script
+from Autodesk.Revit.Exceptions import OperationCanceledException
 
 output = script.get_output()
 

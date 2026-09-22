@@ -37,6 +37,7 @@ from pyrevit.framework import List
 from pyrevit import coreutils
 from pyrevit import forms
 from pyrevit import script
+from Autodesk.Revit.Exceptions import OperationCanceledException
 
 doc =__revit__.ActiveUIDocument.Document
 uidoc =__revit__.ActiveUIDocument
@@ -59,6 +60,8 @@ if len(th3dn) != 0:
 		default= None,
 		prompt='If the field is left blank, then a new 3D view will be created\nselect a view from the list to use the section box in that',
 		title='Select One 3d View')
+	if not value_n:
+	    script.exit()
 
 	for v,n in zip (th3d,th3dn):
 		if value_n == n:
@@ -93,7 +96,10 @@ else:
 
 sel1 = uidoc.Selection
 ot = Selection.ObjectType.LinkedElement
-el_ref = sel1.PickObject(ot, "Pick a linked element.")
+try:
+    el_ref = sel1.PickObject(ot, "Pick a linked element.")
+except OperationCanceledException:
+    script.exit()
 linkInst = doc.GetElement(el_ref.ElementId)
 linkDoc = linkInst.GetLinkDocument()
 linkEl = linkDoc.GetElement(el_ref.LinkedElementId)

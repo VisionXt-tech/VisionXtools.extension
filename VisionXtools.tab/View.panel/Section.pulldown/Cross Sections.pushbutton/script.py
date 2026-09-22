@@ -36,6 +36,7 @@ from pyrevit.framework import List
 from pyrevit import coreutils
 from pyrevit import forms
 from pyrevit import script
+from Autodesk.Revit.Exceptions import OperationCanceledException
 
 doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
@@ -54,6 +55,8 @@ value_n = forms.ask_for_one_item(
     default= numbers[4],
     prompt='OFFSET LENGTH (mm)',
     title='Create Section View')
+if not value_n:
+    script.exit()
 
 try:
 	if units == DisplayUnitType.DUT_MILLIMETERS:
@@ -84,6 +87,8 @@ value = forms.ask_for_one_item(
     default= v_names[0],
     prompt='Select View Type',
     title='Create Section View')
+if not value:
+    script.exit()
 
 section_type = None
 
@@ -93,7 +98,10 @@ for i,j in zip(v_names,sect_views):
 
 with forms.WarningBar(title='Pick source object:'):
 	sel = uidoc.Selection 
-	selected = sel.PickObject(ObjectType.Element)
+	try:
+		selected = sel.PickObject(ObjectType.Element)
+	except OperationCanceledException:
+		script.exit()
 
 unwr = doc.GetElement(selected)
 
@@ -132,6 +140,8 @@ try:
 			default= npaths[0],
 			prompt='Select Railing Segment Number',
 			title='Number of Path Segments {}'.format(len(path)))
+			if not valuep:
+			    script.exit()
 			
 			line = path[valuep]
 	elif unwr.Location.GetType()== LocationPoint:

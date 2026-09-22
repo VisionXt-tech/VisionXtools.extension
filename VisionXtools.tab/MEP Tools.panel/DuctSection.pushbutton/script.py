@@ -31,6 +31,8 @@ port = forms.ask_for_one_item(
     prompt='Select Required Flow Rate (m3/h)',
     title='Duct Sizing'
 )
+if not port:
+    script.exit()
 
 ppmin = []
 

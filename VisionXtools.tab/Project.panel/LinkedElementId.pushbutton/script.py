@@ -39,6 +39,7 @@ from pyrevit import coreutils
 from pyrevit import forms
 from pyrevit import script
 from pyrevit import output
+from Autodesk.Revit.Exceptions import OperationCanceledException
 
 doc =__revit__.ActiveUIDocument.Document
 uidoc =__revit__.ActiveUIDocument
@@ -49,7 +50,10 @@ doc_v = FilteredElementCollector(doc).OfClass(View)
 
 sel1 = uidoc.Selection
 ot = Selection.ObjectType.LinkedElement
-el_ref = sel1.PickObjects(ot, "Pick a linked element.")
+try:
+    el_ref = sel1.PickObjects(ot, "Pick a linked element.")
+except OperationCanceledException:
+    script.exit()
 Output.print_md("##Linked Elements info:")
 Output.insert_divider()
 for item in el_ref:

@@ -50,6 +50,8 @@ value = forms.ask_for_one_item(
     default= sortlist[0],
     prompt='Select Category',
     title='Rectangular Selection')
+if not value:
+    script.exit()
 
 class MySelectionFilter(ISelectionFilter):
 	def __init__(self):

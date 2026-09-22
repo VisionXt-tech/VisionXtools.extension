@@ -260,6 +260,8 @@ selected_phase_name = forms.ask_for_one_item(
     prompt='Select Phase for Rooms',
     title='Room Section Creator'
 )
+if not selected_phase_name:
+    script.exit()
 
 if selected_phase_name is None:
     forms.alert('No phase selected', exitscript=True)
@@ -320,6 +322,8 @@ selected_section_name = forms.ask_for_one_item(
     prompt='Select Section View Type',
     title='Room Section Creator'
 )
+if not selected_section_name:
+    script.exit()
 
 if selected_section_name is None:
     forms.alert('No section type selected', exitscript=True)
@@ -340,6 +344,8 @@ selected_crop_height_mm = forms.ask_for_one_item(
     prompt='Select Crop View Height (mm)',
     title='Room Section Creator'
 )
+if not selected_crop_height_mm:
+    script.exit()
 
 if selected_crop_height_mm is None:
     forms.alert('No crop height selected', exitscript=True)
@@ -445,6 +451,8 @@ selected_tb_name = forms.ask_for_one_item(
     prompt='Select Title Block',
     title='Room Section Creator'
 )
+if not selected_tb_name:
+    script.exit()
 
 if selected_tb_name is None:
     forms.alert('No title block selected', exitscript=True)

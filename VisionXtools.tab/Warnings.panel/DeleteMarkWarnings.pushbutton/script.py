@@ -49,6 +49,8 @@ res = forms.SelectFromList.show(
         title='Categories Selector',
         multiselect=True
     )
+if not res:
+    script.exit()
 
 category =[]
 namer = []

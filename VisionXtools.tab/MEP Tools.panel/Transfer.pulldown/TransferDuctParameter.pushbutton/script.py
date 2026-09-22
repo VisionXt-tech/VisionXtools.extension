@@ -51,6 +51,8 @@ res= forms.SelectFromList.show(
         group_selector_title='All:',
         multiselect=True
     )
+if not res:
+    script.exit()
 
 def tolist(input):       
     result = input if isinstance(input, list) else [input]

@@ -130,6 +130,8 @@ str_linkname = forms.ask_for_one_item(
     default = doclnkn[0],
     prompt='Select the Link where are the Rooms From List',
     title='ROOM LINK SELECTOR')
+if not str_linkname:
+    script.exit()
 
 
 
@@ -190,6 +192,8 @@ para_ord = forms.ask_for_string(
     prompt="Se vuoi cambiare il valore risultante, cambia l'ordine degli indici in\nmodo da ricomporre la concatenazione\nricordati di inserire una virgola tra un indice e un altro",
     title='-'.join(appear_list)
 )
+if not para_ord:
+    script.exit()
 
 x = para_ord.split(",")
 a = []

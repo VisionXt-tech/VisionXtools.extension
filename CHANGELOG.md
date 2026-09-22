@@ -3,6 +3,12 @@
 Il pulsante **About > Version** legge questo file: la prima sezione e' la versione installata.
 Formato di ogni sezione: `## <versione> - <data>`, seguita dall'elenco delle novita'.
 
+## 1.1.2 - 22/09/2026
+
+- Tutti i comandi: chiudere o annullare una finestra di dialogo ora termina il comando in silenzio, senza messaggi di errore. Corretti 60 punti in 26 pulsanti.
+- About: il pulsante VisionXt ora apre il sito correttamente. Prima mostrava un errore su alcune versioni di pyRevit.
+- About: icona dedicata per il pulsante Version.
+
 ## 1.1.1 - 22/09/2026
 
 - Center Room Tags: i tag ora si centrano anche nelle viste di sezione e di prospetto, in orizzontale e in altezza sulla mezzeria della stanza. Prima lo spostamento avveniva solo in pianta, quindi nelle sezioni il tag restava fermo.

@@ -50,6 +50,8 @@ MTemplate = forms.SelectFromList.show(
         title='Select a Master ViewTemplate',
         multiselect=False
     )
+if not MTemplate:
+    script.exit()
 
 for i,x in zip(viewtemplates,viewTemplatesname):
 	if MTemplate == x:
@@ -73,6 +75,8 @@ targ_filters = forms.SelectFromList.show(
         title='Select Filters to Transfer',
         multiselect = True
     )
+if not targ_filters:
+    script.exit()
 
 filt_targ_ele = []
 
@@ -107,6 +111,8 @@ targ_templates = forms.SelectFromList.show(
         title='Select ViewTemplates',
         multiselect = True
     )
+if not targ_templates:
+    script.exit()
 
 templates_ele_target = []
 

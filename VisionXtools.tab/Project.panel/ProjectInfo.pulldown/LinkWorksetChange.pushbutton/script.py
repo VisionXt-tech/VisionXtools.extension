@@ -111,6 +111,8 @@ workset_n = forms.ask_for_one_item(
     default = wor_name[0],
     prompt='Select Workset to Assign',
     title='Workset Selector')
+if not workset_n:
+    script.exit()
 
 work_set = None
 

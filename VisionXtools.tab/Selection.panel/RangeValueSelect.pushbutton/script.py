@@ -83,6 +83,8 @@ value = forms.SelectFromList.show(
         title='Select Categories',
         multiselect=False
     )
+if not value:
+    script.exit()
 
 category =None
 namer = []
@@ -125,6 +127,8 @@ res = forms.SelectFromList.show(sortlistp,
                                 multiselect = False,
                                 title ='Select Parameter To Evaluate Range',
                                 group_selector_title ='Isolate Value Range')
+if not res:
+    script.exit()
 
 
 
@@ -168,8 +172,12 @@ min_v = min(valuesconv)
 max_v = max(valuesconv)
 
 res_min = forms.ask_for_number_slider(default=None, min=min_v, max=max_v, interval=0.1, prompt="Select the Minimun value of Range", title="Unit: {}".format(llu))
+if res_min is None:
+    script.exit()
 
 res_max = forms.ask_for_number_slider(default=None, min=res_min, max=max_v, interval=0.1, prompt="Select the Maximun value of Range, Min Value = {}".format(res_min), title="Unit: {}".format(llu))
+if res_max is None:
+    script.exit()
 
 inst_result=[]
 inst_result_id=[]

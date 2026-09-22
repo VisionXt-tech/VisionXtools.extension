@@ -24,6 +24,8 @@ uidoc = __revit__.ActiveUIDocument
 
 # Select opened documents to transfer View Templates
 selProject = forms.select_open_docs(title="Select project/s to transfer View Templates", button_name='OK', width=500, multiple=True, filterfunc=None)
+if not selProject:
+    script.exit()
 
 # Filter Views and Materials
 
@@ -53,6 +55,8 @@ materialsdocs = retrieveFI(selProject, False)
 
 # Display select view templates form
 vMaterials = forms.SelectFromList.show(materialsdocs.keys(), "Select one or more Materials to transfer to the Current Project", 600, 300, multiselect=True)
+if not vMaterials:
+    script.exit()
 
 # Collect all View Templates in the current document
 docMaterials = retrieveFI(doc, True)
