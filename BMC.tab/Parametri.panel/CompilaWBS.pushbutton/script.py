@@ -43,6 +43,7 @@ from bmc_utils import (
 
 doc = __revit__.ActiveUIDocument.Document
 output = script.get_output()
+R.load_data()  # client shared parameter TXTs + WBS R06: asks the folder the first time
 
 MAX_ROWS = 150
 SOURCES = [

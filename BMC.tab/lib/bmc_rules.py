@@ -16,13 +16,22 @@ LOCAL_DATA_DIR = os.path.join(
     os.path.dirname(__file__), "data"
 )  # dev copy, not in the repo
 DATA_MARKER = "wbs_R06.json"
+DATA_TITLE = "BMC - cartella dati"
+
+# project data, filled by load_data() only in the commands that need it
+DATA_DIR = None
+SHARED_PARAMS = None  # shared parameter files R06 (name -> file, guid, type, group)
+SHARED_DIR = None
+WBS_DOMAIN = None
+WBS_DESCRIPTION = None
+WBS_L8_PARENT = None
 
 
 def _is_data_dir(path):
     return bool(path) and os.path.isfile(os.path.join(path, DATA_MARKER))
 
 
-def _find_data_dir():
+def _find_data_dir(required):
     """Project data (client shared parameter TXTs, WBS) is not in the public repo: each user points
     once to the shared project folder and the choice is kept in the pyRevit user config.
     """
@@ -31,35 +40,68 @@ def _find_data_dir():
     try:
         from pyrevit import forms, script
     except ImportError:  # CPython self-checks without pyRevit
-        return LOCAL_DATA_DIR
+        return None
     cfg = script.get_config("BMC")
     path = cfg.get_option("data_dir", "")
     if _is_data_dir(path):
         return path
-    forms.alert(
-        "Seleziona la cartella dati BMC condivisa di commessa "
+    msg = (
+        "Questo comando usa la cartella dati BMC condivisa di commessa "
         "(contiene %s, shared_params_R06.json e shared_params\\). "
-        "La scelta viene ricordata." % DATA_MARKER,
-        title="BMC - cartella dati",
+        "La scelta viene ricordata." % DATA_MARKER
     )
-    path = forms.pick_folder(title="Cartella dati BMC")
-    if not _is_data_dir(path):
-        forms.alert(
-            "Cartella non valida: non contiene %s." % DATA_MARKER,
-            title="BMC - cartella dati",
-            exitscript=True,
+    if required:
+        go = forms.alert(msg, title=DATA_TITLE, ok=True, cancel=True)
+    else:
+        pick = "Seleziona cartella"
+        go = (
+            forms.alert(
+                msg + " Senza, i controlli che la usano vengono saltati.",
+                title=DATA_TITLE,
+                options=[pick, "Continua senza dati"],
+            )
+            == pick
         )
+    path = forms.pick_folder(title="Cartella dati BMC") if go else None
+    if not _is_data_dir(path):
+        if required and path:
+            forms.alert(
+                "Cartella non valida: non contiene %s." % DATA_MARKER,
+                title=DATA_TITLE,
+                exitscript=True,
+            )
+        if required:
+            script.exit()
+        return None
     cfg.set_option("data_dir", path)
     script.save_config()
     return path
 
 
-DATA_DIR = _find_data_dir()
+def load_data(required=True):
+    """Load the project data on demand. required: without a valid folder the command ends quietly;
+    otherwise returns False and the caller skips what needs the data."""
+    global DATA_DIR, SHARED_PARAMS, SHARED_DIR, WBS_DOMAIN, WBS_DESCRIPTION, WBS_L8_PARENT
+    if DATA_DIR:
+        return True
+    path = _find_data_dir(required)
+    if not path:
+        if required:
+            raise RuntimeError("cartella dati BMC non trovata (%s)" % LOCAL_DATA_DIR)
+        return False
 
+    def load(name):
+        with open(os.path.join(path, name)) as f:
+            return json.load(f)
 
-def _load(name):
-    with open(os.path.join(DATA_DIR, name)) as f:
-        return json.load(f)
+    SHARED_PARAMS = load("shared_params_R06.json")
+    SHARED_DIR = os.path.join(path, "shared_params")
+    wbs = load(DATA_MARKER)
+    WBS_DOMAIN = [set(wbs["levels"]["L%d" % i].keys()) for i in range(1, 9)]
+    WBS_DESCRIPTION = [wbs["levels"]["L%d" % i] for i in range(1, 9)]
+    WBS_L8_PARENT = wbs["l8_parent_l7"]
+    DATA_DIR = path
+    return True
 
 
 # ---------------------------------------------------------------- general
@@ -394,9 +436,6 @@ def all_pir_parameters():
     return result
 
 
-# shared parameter files R06 (name -> file, guid, type, group)
-SHARED_PARAMS = _load("shared_params_R06.json")
-SHARED_DIR = os.path.join(DATA_DIR, "shared_params")
 # decision 23/09/2026: every R06 TXT except MEP and ST is used by the ARC model
 SHARED_FILES = {
     "AR": "BMC_Parametri condivisi AR.txt",
@@ -449,7 +488,7 @@ SAG_CATS = [  # Supporto: decision 23/09/2026 (no PIR row)
 
 
 def binding_targets():
-    """name -> (level "I"/"T", [BuiltInCategory]) for every parameter of the SHARED_FILES TXTs.
+    """name -> (level "I"/"T", [BuiltInCategory]) for every parameter of the SHARED_FILES TXTs (needs load_data).
     PIR_ARC groups first, then PIR_SUP e AREE, Viste, Tavole and Supporto."""
     targets = {}
     for _code, _label, cats, _kind, params in PIR_GROUPS:
@@ -498,14 +537,9 @@ MIGRATIONS = [
 
 # ---------------------------------------------------------------- WBS (BGMC_WBS_R06.xlsx)
 
-_WBS = _load("wbs_R06.json")
-WBS_DOMAIN = [set(_WBS["levels"]["L%d" % i].keys()) for i in range(1, 9)]
-WBS_DESCRIPTION = [_WBS["levels"]["L%d" % i] for i in range(1, 9)]
-WBS_L8_PARENT = _WBS["l8_parent_l7"]
-
 
 def wbs_level_errors(values):
-    """values: list of 8 strings ('' = empty). Returns a list of messages for values out of domain."""
+    """values: list of 8 strings ('' = empty). Returns a list of messages for values out of domain (needs load_data)."""
     errors = []
     for i, value in enumerate(values):
         if not value or value == ND:

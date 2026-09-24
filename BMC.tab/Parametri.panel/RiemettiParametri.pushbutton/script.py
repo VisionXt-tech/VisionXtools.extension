@@ -33,6 +33,7 @@ from bmc_utils import commit, idv, save_log
 doc = __revit__.ActiveUIDocument.Document
 app = __revit__.Application
 output = script.get_output()
+R.load_data()  # client shared parameter TXTs + WBS R06: asks the folder the first time
 
 MAX_ROWS = 80
 

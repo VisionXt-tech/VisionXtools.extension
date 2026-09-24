@@ -41,9 +41,11 @@ from bmc_utils import (
 doc = __revit__.ActiveUIDocument.Document
 app = __revit__.Application
 output = script.get_output()
+HAS_DATA = R.load_data(required=False)  # WBS R06 + TXT GUIDs; without them those checks are skipped
 
-OK, WARN, ERR, FAIL = 0, 1, 2, 3
-LABEL = {OK: "OK", WARN: "AVVISO", ERR: "ERRORE", FAIL: "ERRORE SCRIPT"}
+OK, WARN, ERR, FAIL, SKIP = 0, 1, 2, 3, 4
+LABEL = {OK: "OK", WARN: "AVVISO", ERR: "ERRORE", FAIL: "ERRORE SCRIPT", SKIP: "NON ESEGUITO"}
+NO_DATA = "Cartella dati BMC non selezionata"
 MAX_ROWS = 50
 MAX_SELECT = 1000
 
@@ -65,12 +67,15 @@ class Check(object):
         self.status = max(self.status, severity)
 
 
-def check(cid, title, source):
+def check(cid, title, source, needs_data=False):
     def wrap(func):
         def runner():
             c = Check(cid, title, source)
             try:
-                func(c)
+                if needs_data and not HAS_DATA:
+                    c.status, c.note = SKIP, NO_DATA + ": controllo saltato."
+                else:
+                    func(c)
             except Exception as ex:
                 c.status = FAIL
                 c.note = "Errore nello script: %s" % ex
@@ -132,8 +137,10 @@ def c_params(c):
             guid = str(spe.GuidValue).lower()
         is_type = isinstance(it.Current, TypeBinding)
         bound.setdefault(it.Key.Name, []).append((guid, is_type))
+    if not HAS_DATA:
+        c.note = NO_DATA + ": GUID e file TXT non verificati."
     for name, level in R.all_pir_parameters():
-        ref = R.SHARED_PARAMS.get(name)
+        ref = (R.SHARED_PARAMS or {}).get(name)
         if name not in bound:
             c.add(
                 "`%s` mancante (TXT %s): Parametri > Riemetti parametri R06"
@@ -675,6 +682,7 @@ def wbs_values(el):
     "06.WBS",
     "WBS: valori ammessi, L8 figlio di L7, concatenato",
     "WBS R06; PGI 3.14.2.2 LV2.d",
+    needs_data=True,
 )
 def c_wbs(c):
     out_of_domain, concat_wrong = {}, []
@@ -701,6 +709,7 @@ def c_wbs(c):
     "06.WBS8",
     "WBS: L7/L8 coerenti con il tipo di elemento",
     "WBS R06; regola bmc_rules.WBS_EXPECTED (proposta da validare)",
+    needs_data=True,
 )
 def c_wbs_kind(c):
     wrong = {}
@@ -1056,14 +1065,14 @@ def save_csv():
 def print_report(csv_path):
     output.print_md("# BMC - Model Checker ARC (PGI R06)")
     output.print_md("Modello: **%s** - regole PGI R06 / PIR R06 / WBS R06." % doc.Title)
-    totals = {OK: 0, WARN: 0, ERR: 0, FAIL: 0}
+    totals = dict.fromkeys(LABEL, 0)
     rows = []
     for c in checks:
         totals[c.status] += 1
         rows.append([c.cid, c.title, LABEL[c.status], len(c.items), c.source])
     output.print_md(
-        "**%d controlli** - OK %d - AVVISO %d - ERRORE %d - ERRORE SCRIPT %d"
-        % (len(checks), totals[OK], totals[WARN], totals[ERR], totals[FAIL])
+        "**%d controlli** - OK %d - AVVISO %d - ERRORE %d - ERRORE SCRIPT %d - NON ESEGUITO %d"
+        % (len(checks), totals[OK], totals[WARN], totals[ERR], totals[FAIL], totals[SKIP])
     )
     output.print_md("Report CSV: `%s`" % csv_path)
     output.print_table(

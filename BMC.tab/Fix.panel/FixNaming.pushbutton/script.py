@@ -26,6 +26,8 @@ output = script.get_output()
 
 import bmc_rules as R
 
+HAS_DATA = R.load_data(required=False)  # WBS R06 domain, only for WBS_TE_WBS
+
 AA_PGI = R.STRAT_CODES
 CAT_CODE = R.STRAT_CAT_CODE  # walls, floors, ceilings (roofs are remodelled as floors: not renamed)
 RE_MATERIAL = R.RE_MATERIAL
@@ -177,6 +179,9 @@ def plan_keynotes():
 
 
 def plan_wbs():
+    if not HAS_DATA:
+        skipped.append(("WBS_TE_WBS", "-", "cartella dati BMC non selezionata: valori WBS non verificabili, non compilato"))
+        return
     for el in FilteredElementCollector(doc).WhereElementIsNotElementType():
         p_concat, current = text_param(el, WBS_CONCAT)
         if p_concat is None or p_concat.IsReadOnly:

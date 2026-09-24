@@ -20,6 +20,8 @@ sys.modules["Autodesk.Revit.DB"] = db
 
 import bmc_rules as R  # noqa: E402
 
+R.load_data()
+
 ok = ["BMA", "FP", "AUL", "AG", "E0C", "L01", "3AR", "502"]
 assert R.wbs_level_errors(ok) == []
 assert (
