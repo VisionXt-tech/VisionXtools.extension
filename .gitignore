@@ -4,6 +4,9 @@
 CLAUDE.md
 HANDOFF.md
 
+# BMC project data (client shared parameter TXTs, WBS): shared project folder, never pushed
+BMC.tab/lib/data/
+
 # Private reference docs for building automations (never pushed)
 docs/
 

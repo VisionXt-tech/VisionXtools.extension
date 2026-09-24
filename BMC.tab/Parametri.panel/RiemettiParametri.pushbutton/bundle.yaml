@@ -1,0 +1,1 @@
+tooltip: "Re-issue the project parameters from the R06 shared parameter TXT files (AR, GE, SPACE, BROWSER, TAVOLE, Supporto) with the PIR categories and type/instance: backup of every value, delete wrong/legacy, rebind, insert, restore values and migrate legacy values. One undoable transaction."

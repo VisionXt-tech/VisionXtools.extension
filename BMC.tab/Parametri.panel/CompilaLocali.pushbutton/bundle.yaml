@@ -1,0 +1,1 @@
+tooltip: "Fill the empty UTI parameters of the rooms (PGI R06 3.11.12): building and floor from the level, abbreviation from the room number, nd for apartment, department and stair codes. Only empty values, groups selectable, one undoable transaction, JSON log."

@@ -1,0 +1,1 @@
+tooltip: "Fill the empty or not admissible WBS levels (WBS R06) from the model: L1-L5 model constants, L6/L4 from the level, L7/L8 from the same type or category (defaults flagged). Valid values are never changed. Preview, one undoable transaction, JSON log, CSV of the type table."

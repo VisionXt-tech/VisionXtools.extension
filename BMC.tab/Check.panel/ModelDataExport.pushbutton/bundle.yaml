@@ -1,0 +1,1 @@
+tooltip: "Export read-only model data (PIR parameters, phases, worksets, levels, types, rooms, warnings, views) to JSON for the BMC model checker"

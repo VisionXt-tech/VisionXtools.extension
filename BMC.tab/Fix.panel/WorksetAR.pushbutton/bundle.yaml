@@ -1,0 +1,1 @@
+tooltip: "PGI R06 3.11.8: merge every modelling workset into AR_ARCHITETTURA (renaming the old AR), move areas to AR_AREE, keep the coordination worksets starting with _. One undoable transaction with JSON log."
