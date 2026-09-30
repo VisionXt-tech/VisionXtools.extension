@@ -30,9 +30,12 @@ from pyrevit import script
 
 import bmc_rules as R
 from bmc_utils import (
+    ask_preview_only,
     commit,
+    end_preview,
     ename,
     idv,
+    in_curtain_wall,
     instances,
     layer_codes,
     level_name,
@@ -51,10 +54,12 @@ SOURCES = [
     ("livello", "L4, L6 dal livello dell'elemento"),
     ("tipo", "L7-L8 dagli altri elementi dello stesso tipo"),
     ("categoria", "L7-L8 dagli elementi della stessa categoria"),
-    ("regola", "L7-L8 dalla tabella bmc_rules.WBS_EXPECTED (proposta, da validare)"),
+    ("regola", "L7-L8 dalla tabella bmc_rules.WBS_EXPECTED (validata dai referenti 25/09)"),
     ("difforme", "L7-L8 esistenti validi ma diversi dalla regola: sostituiti con la regola"),
     ("concatenato", "WBS_TE_WBS ricalcolato"),
 ]
+
+PREVIEW_ONLY = ask_preview_only()
 
 # ---------------------------------------------------------------- collect (read only)
 
@@ -141,6 +146,7 @@ def proposal(row):
             type_mark(el_type) if el_type else "",
             layer_codes(doc, el_type) if el_type else [],
             ename(el_type) if el_type else "",
+            in_curtain_wall(row["el"]),
         )
 
         def usable(counter):
@@ -264,6 +270,7 @@ with codecs.open(csv_path, "w", encoding="utf-8-sig") as f:
         )
 output.print_md("Tabella tipi (CSV per la validazione): `%s`" % csv_path)
 
+end_preview(output, PREVIEW_ONLY)
 groups = ["%s (%d)" % (k, count_by_source[k]) for k, _ in SOURCES if count_by_source[k]]
 if not groups:
     forms.alert("WBS gia' compilata: niente da fare.", exitscript=True)

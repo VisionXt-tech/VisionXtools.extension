@@ -1,8 +1,8 @@
-"""Fix BMC naming and derived parameters from the real model data: stratigraphic type names, Keynote, WBS concatenation, HOST code"""
+"""Fix BMC naming and derived parameters from the real model data: stratigraphic type names, Keynote, WBS concatenation, HOST codes, Contrassegno univoco, Si/No"""
 
 __title__ = "Correggi\nNomenclature"
 __author__ = "Luca Rosati"
-__guida__ = 'Rinomina i tipi stratigrafici in base agli strati reali, compila Keynote, WBS_TE_WBS e codice HOST vuoti, rinomina i livelli COO.'
+__guida__ = 'Rinomina i tipi stratigrafici in base agli strati reali, compila Keynote, WBS_TE_WBS, codici HOST, Contrassegno univoco e Si/No vuoti, rinomina i livelli COO.'
 
 # Engine: IronPython 2.7 (pyRevit default). ASCII-only source.
 # Flow: compute every change (read only) -> preview in the output window -> choose groups -> confirm ->
@@ -25,11 +25,12 @@ doc = __revit__.ActiveUIDocument.Document
 output = script.get_output()
 
 import bmc_rules as R
+from bmc_utils import ask_preview_only, end_preview, host_codes, instances, param_state_any
 
 HAS_DATA = R.load_data(required=False)  # WBS R06 domain, only for WBS_TE_WBS
 
 AA_PGI = R.STRAT_CODES
-CAT_CODE = R.STRAT_CAT_CODE  # walls, floors, ceilings (roofs are remodelled as floors: not renamed)
+CAT_CODE = R.STRAT_CAT_CODE  # walls, floors (COP when CS), ceilings; roofs are remodelled as floors: not renamed
 RE_MATERIAL = R.RE_MATERIAL
 RE_TYPE_MARK = R.RE_TYPE_MARK
 RE_CODED_TYPE = R.RE_CODE_PREFIX
@@ -63,9 +64,14 @@ def text_param(element, name):
     return p, (p.AsString() or "").strip()
 
 
+PREVIEW_ONLY = ask_preview_only()
+
 # ---------------------------------------------------------------- plan (read only)
 
-renames, keynotes, wbs, hosts = [], [], [], []
+renames, keynotes, wbs = [], [], []
+hosts = []  # (element, parameter, old, new)
+uniques = []  # (element, old, new, level name)
+yesno = []  # (element or type, parameter)
 skipped = []  # (group, element, reason)
 
 
@@ -77,7 +83,7 @@ def plan_renames():
                 (idv(t.Category.Id) if t.Category else None, t.FamilyName, ename(t))
             )
     targets = set()
-    for bic, cat_code in CAT_CODE.items():
+    for bic in CAT_CODE:
         for t in (
             FilteredElementCollector(doc).OfCategory(bic).WhereElementIsElementType()
         ):
@@ -113,11 +119,12 @@ def plan_renames():
                     (
                         "Nome tipo",
                         name,
-                        "codice AA '%s' non previsto dal PGI (decisione dei referenti)"
+                        "codice AA '%s' non previsto dal PGI (coperture: CS, nome AR_COP_CS..., referenti 25/09)"
                         % m.group(1),
                     )
                 )
                 continue
+            cat_code = R.strat_cat_code(bic, m.group(1))  # AR_COP_CS... for roofs as floors
             codes, total = [], 0.0
             ok = True
             for layer in cs.GetLayers():
@@ -234,42 +241,104 @@ def plan_wbs():
 
 
 def plan_hosts():
+    # referents 25/09/2026: HOST = Type Mark of the host, HOST+thickness = TypeMark_thickness (PV2.01K_112).
+    # Values not in that format (e.g. OLD / OLD_160 from OLD_ walls) are not admissible: they are replaced
+    # as soon as the host has a valid Type Mark; valid values that differ are only reported.
     bics = [
         BuiltInCategory.OST_Doors,
         BuiltInCategory.OST_Windows,
         BuiltInCategory.OST_CurtainWallPanels,
     ]
+    formats = {HOST_PARAM: RE_TYPE_MARK, R.P_HOST_THK: R.RE_HOST_THK}
     for bic in bics:
         for el in (
             FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
         ):
-            p, current = text_param(el, HOST_PARAM)
-            host = getattr(el, "Host", None)
-            if p is None or p.IsReadOnly or host is None:
+            if getattr(el, "Host", None) is None:
                 continue
-            host_type = doc.GetElement(host.GetTypeId())
-            tm = (
-                host_type.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_MARK)
-                if host_type is not None
-                else None
-            )
-            expected = (tm.AsString() or "").strip() if tm is not None else ""
-            if not expected:
-                skipped.append(
-                    ("Codice HOST", "id %s" % idv(el.Id), "l'host non ha Type Mark")
-                )
-                continue
-            if not current:
-                hosts.append((el, current, expected))
-            elif current != expected:
-                skipped.append(
-                    (
-                        "Codice HOST",
-                        "id %s" % idv(el.Id),
-                        "valore '%s' diverso da '%s': non sovrascritto"
-                        % (current, expected),
+            tm, tm_thk = host_codes(doc, el)
+            for name, expected in ((HOST_PARAM, tm), (R.P_HOST_THK, tm_thk)):
+                p, current = text_param(el, name)
+                if p is None or p.IsReadOnly:
+                    continue
+                if not RE_TYPE_MARK.match(tm or ""):
+                    reason = "host senza Type Mark valido ('%s'): tipo OLD_ da sostituire o Type Mark da compilare" % tm
+                    skipped.append(("Codice HOST", "id %s" % idv(el.Id), reason))
+                elif not expected:
+                    skipped.append(("Codice HOST", "id %s" % idv(el.Id), "l'host non ha strati ne' spessore nel nome"))
+                elif not current or (current != expected and not formats[name].match(current)):
+                    hosts.append((el, name, current, expected))
+                elif current != expected:
+                    skipped.append(
+                        (
+                            "Codice HOST",
+                            "id %s" % idv(el.Id),
+                            "valore '%s' diverso da '%s': non sovrascritto"
+                            % (current, expected),
+                        )
                     )
-                )
+
+
+def element_xy(el):
+    loc = el.Location
+    if isinstance(loc, LocationPoint):
+        return loc.Point.X, loc.Point.Y
+    bb = el.get_BoundingBox(None)
+    if bb is None:
+        return None
+    return (bb.Min.X + bb.Max.X) / 2.0, (bb.Min.Y + bb.Max.Y) / 2.0
+
+
+def plan_uniques():
+    # referents 25/09/2026: prefix + progressive number, P01... on doors (F01... on windows).
+    # Order (decision 25/09/2026): levels bottom-up, then clockwise from north on each level (bmc_rules.clockwise_order).
+    # The whole category is renumbered in that order: values already P/F that end up in a different place change,
+    # values in another format are reported and left out of the numbering.
+    for bic, prefix in R.UNIQUE_PREFIX.items():
+        by_level = {}
+        for el in FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType():
+            p, current = text_param(el, R.P_UNIQUE)
+            if p is None or p.IsReadOnly or el.SuperComponent is not None:
+                continue  # nested shared components are part of their parent door/window
+            m = R.RE_UNIQUE.match(current)
+            xy = element_xy(el)
+            if current and not (m and m.group(1) == prefix):
+                reason = "valore '%s' non conforme: non sovrascritto" % current
+            elif xy is None:
+                reason = "elemento senza posizione: non numerato"
+            else:
+                level = doc.GetElement(el.LevelId)
+                key = (level.Elevation if level is not None else 0.0, idv(el.LevelId))
+                by_level.setdefault(key, []).append((xy[0], xy[1], (el, current, level)))
+                continue
+            skipped.append(("Contrassegno univoco", "id %s" % idv(el.Id), reason))
+        n = 0
+        for key in sorted(by_level):
+            for el, current, level in R.clockwise_order(by_level[key]):
+                n += 1
+                new = R.unique_mark(prefix, n)
+                if current != new:
+                    uniques.append((el, current, new, ename(level) if level is not None else "-"))
+
+
+def plan_yesno():
+    # referents 25/09/2026: PIR Si/No parameters never set -> "No"; values already set are kept
+    seen = set()
+    for _code, _label, bics, _kind, params in R.PIR_GROUPS:
+        names = [(n, lv) for n, lv in params if R.YESNO_TAG in n]
+        if not names:
+            continue
+        for el in instances(doc, bics):
+            for name, level in names:
+                target, state, _ = param_state_any(doc, el, name, level)
+                key = (idv(target.Id), name)
+                if state != "empty" or key in seen:
+                    continue
+                p = target.LookupParameter(name)
+                if p is None or p.IsReadOnly or p.StorageType != StorageType.Integer:
+                    continue
+                seen.add(key)
+                yesno.append((target, name))
 
 
 def plan_datums():
@@ -289,6 +358,8 @@ plan_renames()
 plan_keynotes()
 plan_wbs()
 plan_hosts()
+plan_uniques()
+plan_yesno()
 plan_datums()
 
 # ---------------------------------------------------------------- preview
@@ -300,7 +371,9 @@ output.print_table(
         ["Nomi dei tipi stratigrafici (da strati reali)", len(renames)],
         ["Keynote vuote -> AR_CAT_TypeMark", len(keynotes)],
         ["WBS_TE_WBS vuoto -> concatenazione dei livelli", len(wbs)],
-        ["Codice elemento tecnico HOST vuoto -> Type Mark dell'host", len(hosts)],
+        ["Codici HOST vuoti -> Type Mark (e spessore) dell'host", len(hosts)],
+        ["Contrassegno univoco -> P01 / F01 per livello, da nord in senso orario", len(uniques)],
+        ["Si/No non compilati -> No", len(yesno)],
         ["Nomi livelli COO", len(datums)],
         ["Casi esclusi (serve una decisione)", len(skipped)],
     ],
@@ -332,8 +405,29 @@ if hosts:
         % (min(MAX_ROWS, len(hosts)), len(hosts))
     )
     output.print_table(
-        table_data=[[output.linkify(el.Id), new] for el, _, new in hosts[:MAX_ROWS]],
-        columns=["Elemento", "Nuovo codice HOST"],
+        table_data=[[output.linkify(el.Id), name, new] for el, name, _, new in hosts[:MAX_ROWS]],
+        columns=["Elemento", "Parametro", "Nuovo valore"],
+    )
+if uniques:
+    output.print_md(
+        "## Contrassegno univoco (prime %d righe su %d)"
+        % (min(MAX_ROWS, len(uniques)), len(uniques))
+    )
+    output.print_table(
+        table_data=[
+            [output.linkify(el.Id), el.Category.Name, lv, old or "-", new]
+            for el, old, new, lv in uniques[:MAX_ROWS]
+        ],
+        columns=["Elemento", "Categoria", "Livello", "Attuale", "Nuovo"],
+    )
+if yesno:
+    output.print_md("## Si/No non compilati -> No")
+    counts = {}
+    for _el, name in yesno:
+        counts[name] = counts.get(name, 0) + 1
+    output.print_table(
+        table_data=[[n, k] for n, k in sorted(counts.items())],
+        columns=["Parametro", "Elementi/tipi"],
     )
 if datums:
     output.print_md("## Livelli")
@@ -356,6 +450,8 @@ if skipped:
         columns=["Gruppo", "Motivo", "N.", "Esempi"],
     )
 
+end_preview(output, PREVIEW_ONLY)
+
 groups = []
 if renames:
     groups.append("Nomi dei tipi stratigrafici (%d)" % len(renames))
@@ -365,6 +461,10 @@ if wbs:
     groups.append("WBS_TE_WBS (%d)" % len(wbs))
 if hosts:
     groups.append("Codice HOST (%d)" % len(hosts))
+if uniques:
+    groups.append("Contrassegno univoco (%d)" % len(uniques))
+if yesno:
+    groups.append("Si/No -> No (%d)" % len(yesno))
 for _kind in ("Livello",):
     _n = len([d for d in datums if d[0] == _kind])
     if _n:
@@ -438,12 +538,26 @@ try:
             except Exception as ex:
                 record("wbs_te_wbs", element, old, new, str(ex))
     if any(c.startswith("Codice HOST") for c in chosen):
-        for element, old, new in hosts:
+        for element, name, old, new in hosts:
             try:
-                element.LookupParameter(HOST_PARAM).Set(new)
-                record("codice_host", element, old, new)
+                element.LookupParameter(name).Set(new)
+                record(name, element, old, new)
             except Exception as ex:
-                record("codice_host", element, old, new, str(ex))
+                record(name, element, old, new, str(ex))
+    if any(c.startswith("Contrassegno") for c in chosen):
+        for element, old, new, _lv in uniques:
+            try:
+                element.LookupParameter(R.P_UNIQUE).Set(new)
+                record("contrassegno_univoco", element, old, new)
+            except Exception as ex:
+                record("contrassegno_univoco", element, old, new, str(ex))
+    if any(c.startswith("Si/No") for c in chosen):
+        for element, name in yesno:
+            try:
+                element.LookupParameter(name).Set(0)
+                record(name, element, None, 0)
+            except Exception as ex:
+                record(name, element, None, 0, str(ex))
     for kind, obj, old, new in datums:
         if "%s: rinomina" % kind not in " | ".join(chosen):
             continue

@@ -30,6 +30,10 @@ PANEL_NOTE = {
         "#d26816",
         "modifica nomi e struttura del modello: anteprima, conferma, Ctrl+Z, log in Documenti",
     ),
+    "Famiglie": (
+        "#8c2d5a",
+        "da lanciare nell'editor di famiglie: crea la geometria e i parametri nella famiglia aperta, Ctrl+Z",
+    ),
 }
 BUNDLE_KINDS = (".pushbutton", ".pulldown", ".splitbutton", ".stack")
 

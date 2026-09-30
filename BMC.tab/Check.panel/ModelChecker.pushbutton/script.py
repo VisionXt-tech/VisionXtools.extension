@@ -25,7 +25,9 @@ from pyrevit import script
 import bmc_rules as R
 from bmc_utils import (
     ename,
+    host_codes,
     idv,
+    in_curtain_wall,
     instances,
     layer_codes,
     level_name,
@@ -449,7 +451,7 @@ def c_strat_names(c):
                 t.Id,
             )
             continue
-        expected = R.STRAT_CAT_CODE.get(t.Category.BuiltInCategory)
+        expected = R.strat_cat_code(t.Category.BuiltInCategory, m.group(2))
         if expected and m.group(1) != expected:
             c.add(
                 "`%s`: codice categoria %s (atteso %s)" % (name, m.group(1), expected),
@@ -708,7 +710,7 @@ def c_wbs(c):
 @check(
     "06.WBS8",
     "WBS: L7/L8 coerenti con il tipo di elemento",
-    "WBS R06; regola bmc_rules.WBS_EXPECTED (proposta da validare)",
+    "WBS R06; regola bmc_rules.WBS_EXPECTED (validata 25/09)",
     needs_data=True,
 )
 def c_wbs_kind(c):
@@ -727,6 +729,7 @@ def c_wbs_kind(c):
                 type_mark(el_type) if el_type else "",
                 layer_codes(doc, el_type) if el_type else [],
                 ename(el_type) if el_type else "",
+                in_curtain_wall(el),
             )
             if expected and (values[6], values[7]) not in expected:
                 key = (
@@ -784,7 +787,11 @@ def c_nd(c):
         )
 
 
-@check("06.HOST", "Codice elemento tecnico HOST = Type Mark dell'host", "PIR R06 SPE")
+@check(
+    "06.HOST",
+    "Codice HOST = Type Mark dell'host, codice e spessore HOST = TypeMark_spessore",
+    "PIR R06 SPE; referenti 25/09",
+)
 def c_host_code(c):
     for el in instances(
         doc,
@@ -794,15 +801,36 @@ def c_host_code(c):
             BuiltInCategory.OST_CurtainWallPanels,
         ],
     ):
-        host = getattr(el, "Host", None)
-        if host is None:
+        if getattr(el, "Host", None) is None:
             continue
-        state, value = param_state(el, R.P_HOST)
-        if state != "value":
-            continue  # empty values are reported by 06.POR / 06.FIN / 06.PFC
-        expected = type_mark(doc.GetElement(host.GetTypeId()))
-        if value != expected:
-            c.add("Valore `%s`, Type Mark host `%s`" % (value, expected), el.Id)
+        expected = dict(zip((R.P_HOST, R.P_HOST_THK), host_codes(doc, el)))
+        formats = {R.P_HOST: R.RE_TYPE_MARK, R.P_HOST_THK: R.RE_HOST_THK}
+        for name in (R.P_HOST, R.P_HOST_THK):
+            state, value = param_state(el, name)
+            if state != "value":
+                continue  # empty values are reported by 06.POR / 06.FIN / 06.PFC
+            if not formats[name].match(value):
+                # e.g. OLD / OLD_160 copied from an OLD_ host: equal to the host but not a valid code
+                c.add("`%s`: valore `%s` non valido (host OLD_ da sostituire?)" % (name, value), el.Id)
+            elif expected[name] is not None and value != expected[name]:
+                c.add("`%s`: valore `%s`, atteso `%s`" % (name, value, expected[name]), el.Id)
+
+
+@check("06.UNI", "Contrassegno univoco: formato P01 / F01 e univocita'", "PIR R06 PRO; referenti 25/09")
+def c_unique_mark(c):
+    seen = {}
+    for bic, prefix in R.UNIQUE_PREFIX.items():
+        for el in instances(doc, [bic]):
+            state, value = param_state(el, R.P_UNIQUE)
+            if state != "value":
+                continue  # empty values are reported by 06.POR / 06.FIN
+            m = R.RE_UNIQUE.match(value)
+            if not m or m.group(1) != prefix:
+                c.add("`%s` non conforme a %s01, %s02..." % (value, prefix, prefix), el.Id)
+            seen.setdefault(value, []).append(el.Id)
+    for value, ids in sorted(seen.items()):
+        if len(ids) > 1:
+            c.add("`%s` usato da %d elementi" % (value, len(ids)), ids)
 
 
 # ---------------------------------------------------------------- 07 rooms

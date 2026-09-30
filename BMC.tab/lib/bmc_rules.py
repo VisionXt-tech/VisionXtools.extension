@@ -7,6 +7,7 @@ docs/_corrente/R06_analisi.md section 8.
 """
 
 import json
+import math
 import os
 import re
 
@@ -108,6 +109,7 @@ def load_data(required=True):
 
 ND = "nd"  # decision 21/09/2026: canonical "information not available" (not "ND")
 ND_VARIANTS = ["ND", "n.d.", "N.D.", "Nd"]
+YESNO_TAG = "_SN_"  # PIR Si/No parameters; referents 25/09/2026: never set -> "No" (0), set values kept
 MAX_FILE_MB = 300  # PGI 3.11.1
 
 PBP_EXPECTED = {"north_south": 0.0, "east_west": 0.0, "elevation": 260.46, "angle": 0.0}
@@ -233,6 +235,16 @@ STRAT_CAT_CODE = {
     BuiltInCategory.OST_Floors: "PAV",
     BuiltInCategory.OST_Ceilings: "CON",
 }
+
+
+def strat_cat_code(bic, aa):
+    """Category code in a stratigraphic type name. Referents 25/09/2026: roofs remodelled as floors
+    use category COP and stratigraphy code CS (AR_COP_CS1.01A_...)."""
+    if bic == BuiltInCategory.OST_Floors and aa == "CS":
+        return "COP"
+    return STRAT_CAT_CODE.get(bic)
+
+
 LOADABLE_CATS = [
     BuiltInCategory.OST_Doors,
     BuiltInCategory.OST_Windows,
@@ -312,6 +324,121 @@ SPE_DOOR = [
 ]
 SPE_WINDOW = [("SPE_TE_Sistema oscurante_Tipologia", "I")]
 UNIQUE = [(P_UNIQUE, "I")]
+# referents 25/09/2026: Contrassegno univoco = prefix + progressive number (P01, P02...; P100 after P99);
+# windows F01... (decision 25/09/2026, the answer names only P)
+UNIQUE_PREFIX = {BuiltInCategory.OST_Doors: "P", BuiltInCategory.OST_Windows: "F"}
+RE_UNIQUE = re.compile(r"^([A-Z])(\d{2,})$")
+RE_HOST_THK = re.compile(r"^[A-Z]{2}[123]\.\d{2}[A-Z]_\d{3,}$")
+
+
+def clockwise_order(items):
+    """items: [(x, y, payload)] on one level. Payloads ordered clockwise starting from north around their
+    centroid (decision 25/09/2026 for the Contrassegno univoco: levels bottom-up, then clockwise from north).
+    x east, y north of the project: project north = true north because the PBP angle is 0 (checker 01.1).
+    """
+    if not items:
+        return []
+    cx = sum(i[0] for i in items) / float(len(items))
+    cy = sum(i[1] for i in items) / float(len(items))
+    # ponytail: bearing around the centroid; with a courtyard building internal doors near the centre
+    # may interleave, upgrade to a per-wing sweep if the referents want it
+    keyed = [
+        ((math.atan2(x - cx, y - cy) + 2 * math.pi) % (2 * math.pi), n, p)
+        for n, (x, y, p) in enumerate(items)
+    ]
+    return [p for _b, _n, p in sorted(keyed, key=lambda k: k[:2])]
+
+
+VVF_ROOM_KINDS = {"VS": "vano scala", "FF": "filtro fumo"}
+
+
+def vvf_room_kinds(number, name):
+    """(function from the number code PIANO.FUNZIONE.NN, function from the name) as VS / FF / ''.
+    Both are returned because they can disagree (e.g. "Filtro fumo L02A.VS.17")."""
+    parts = (number or "").split(".")
+    code = parts[1] if len(parts) == 3 and parts[1] in VVF_ROOM_KINDS else ""
+    low = (name or "").strip().lower()
+    by_name = [
+        k for k, label in sorted(VVF_ROOM_KINDS.items()) if low.startswith(label)
+    ]
+    return code, by_name[0] if by_name else ""
+
+
+def wall_behind(
+    a0, a1, half_a, side, b0, b1, half_b, max_gap, min_overlap, angle_tol=0.02
+):
+    """Plan check (mm): is wall b parallel to wall a and on the given side of it within max_gap?
+    a0, a1, b0, b1: (x, y) ends of the location lines; half_a, half_b: half widths; side: +1 / -1 along the
+    normal n = (-dy, dx) of a0 -> a1, 0 = either side. Returns (gap between the faces, overlap along a) or None.
+    Gap 0 = lining against the structure; a few mm of overlap are tolerated (modelling).
+    """
+    ax, ay = a1[0] - a0[0], a1[1] - a0[1]
+    la = (ax * ax + ay * ay) ** 0.5
+    bx, by = b1[0] - b0[0], b1[1] - b0[1]
+    lb = (bx * bx + by * by) ** 0.5
+    if la == 0 or lb == 0:
+        return None
+    dx, dy = ax / la, ay / la
+    if abs(dx * by / lb - dy * bx / lb) > angle_tol:  # not parallel
+        return None
+    mx, my = (b0[0] + b1[0]) / 2.0 - a0[0], (b0[1] + b1[1]) / 2.0 - a0[1]
+    s = -dy * mx + dx * my  # signed distance of b's axis along n
+    if side and s * side <= 0:
+        return None
+    gap = abs(s) - half_a - half_b
+    if gap < -5 or gap > max_gap:
+        return None
+    t = sorted(
+        [
+            (b0[0] - a0[0]) * dx + (b0[1] - a0[1]) * dy,
+            (b1[0] - a0[0]) * dx + (b1[1] - a0[1]) * dy,
+        ]
+    )
+    overlap = min(la, t[1]) - max(0.0, t[0])
+    if overlap < min_overlap:
+        return None
+    return max(gap, 0.0), overlap
+
+
+COMPOSITION = "Composizione:"
+
+
+def layer_thickness_cm(width_mm):
+    """1,5 / 1,25 / 45: centimetres with a decimal comma, no trailing zeros."""
+    return ("%.2f" % (width_mm / 10.0)).rstrip("0").rstrip(".").replace(".", ",")
+
+
+def stratigraphy_description(current, layers):
+    """Type Description rebuilt from the real layers (decision 29/09/2026): the text before "Composizione:" is
+    kept, then every layer as full material name (the old descriptions cut it with "...") and thickness in cm,
+    joined by " + "; zero-thickness layers (membranes, paint) without thickness.
+    layers: [(material name, width mm)]."""
+    intro = (current or "").strip()
+    if intro == ND:
+        intro = ""
+    if COMPOSITION in intro:
+        intro = intro.split(COMPOSITION)[0]
+    intro = " ".join(
+        intro.split()
+    )  # collapses the double spaces left before "Composizione:"
+    parts = [
+        "%s (%s cm)" % (name, layer_thickness_cm(w)) if round(w, 1) > 0 else name
+        for name, w in layers
+    ]
+    return ("%s %s %s" % (intro, COMPOSITION, " + ".join(parts))).strip()
+
+
+def unique_mark(prefix, number):
+    return "%s%02d" % (prefix, number)
+
+
+def host_thickness_code(host_type_mark, width_mm):
+    """Referents 25/09/2026: SPE_TE_Codice elemento tecnico e spessore HOST = Type Mark_thickness (PV2.01K_112),
+    thickness in mm as in the type name (layer widths are feet: round to 0.001 mm first, half up).
+    """
+    return "%s_%03d" % (host_type_mark, int(round(round(width_mm, 3))))
+
+
 UTI = [
     ("Name", "I"),
     ("Number", "I"),
@@ -556,11 +683,11 @@ def wbs_level_errors(values):
     return errors
 
 
-# Expected (L7, L8) per kind of element, from the WBS R06 descriptions. PROPOSAL to be validated with the
-# architectural lead: the first pair is the one Compila WBS writes when nothing better exists;
-# the checker (06.WBS8) warns when an element has a valid pair that is not in its list.
-#   key: (PIR group, discriminator) - walls/floors: AA code of the Type Mark, doors: function digit
-#   (1 external, 2 internal), objects: Revit category, others "".
+# Expected (L7, L8) per kind of element, from the WBS R06 descriptions. Proposal of 24/09 validated by the
+# referents on 25/09/2026 (external doors changed): the first pair is the one Compila WBS writes when
+# nothing better exists; the checker (06.WBS8) warns when an element has a valid pair that is not in its list.
+#   key: (PIR group, discriminator) - walls/floors: AA code of the Type Mark, doors: "CW" when hosted by a
+#   curtain wall, else function digit (1 external, 2 internal), objects: Revit category, others "".
 _FACADE = ("3IN", "402")
 _WALL_502, _WALL_506 = ("3AR", "502"), ("3AR", "506")
 WBS_EXPECTED = {
@@ -585,23 +712,21 @@ WBS_EXPECTED = {
     ("PAV", ""): [("3AR", "506")],
     ("CON", ""): [("3AR", "506")],
     ("PFC", ""): [("3IN", "404")],
-    ("POR", "1"): [("3IN", "404")],
+    # referents 25/09/2026: external doors are opaque facade (402), glazed facade (404) only in curtain walls
+    ("POR", "1"): [_FACADE],
+    ("POR", "CW"): [("3IN", "404")],
     ("POR", "2"): [("3AR", "508")],
-    ("POR", ""): [("3AR", "508"), ("3IN", "404")],
+    ("POR", ""): [("3AR", "508"), _FACADE, ("3IN", "404")],
     ("FIN", ""): [("3IN", "404"), ("3IN", "406")],
     ("RIN", "1"): [("3IN", "471")],
-    ("RIN", "2"): [
-        ("3AR", "515"),
-        ("3IN", "471"),
-    ],  # 471 is under Involucro: 515 proposed, 471 accepted
+    ("RIN", "2"): [("3AR", "515")],  # 471 is under Involucro (validated 25/09/2026)
     ("RIN", ""): [("3IN", "471"), ("3AR", "515")],
     ("OGG", "OST_PlumbingFixtures"): [("3AR", "510")],
     ("OGG", "OST_Furniture"): [("9FF", "B10")],
     ("OGG", "OST_Casework"): [("9FF", "B11")],
     ("OGG", "OST_Stairs"): [
-        ("3AR", "506"),
-        ("3AR", "515"),
-    ],  # ARC stair = finishes, structure in ST
+        ("3AR", "506")
+    ],  # ARC stair = finishes, structure in ST (validated 25/09/2026)
     ("OGG", "OST_Parking"): [("3AR", "515")],
 }
 FINISH_PREFIXES = (
@@ -611,10 +736,15 @@ FINISH_PREFIXES = (
 )  # layers that make a wall a cladding (rivestimento)
 
 
-def wbs_expected(group, bic, type_mark_value, layer_codes=None, type_name=None):
+def wbs_expected(
+    group, bic, type_mark_value, layer_codes=None, type_name=None, in_curtain_wall=False
+):
     """Expected (L7, L8) pairs for an element ([] = no rule). layer_codes: material codes of the type layers
     (e.g. ["FIN.07"]): an internal wall made only of finishes is a cladding (506), not a partition (502).
-    Proposal: docs/20260924/Proposta_WBS_L7_L8.md."""
+    in_curtain_wall: the element (door) is hosted by a curtain wall.
+    Rule: docs/20260924/Proposta_WBS_L7_L8.md, validated 25/09/2026."""
+    if group == "POR" and in_curtain_wall:
+        return WBS_EXPECTED[("POR", "CW")]
     m = RE_TYPE_MARK.match(type_mark_value or "")
     if not m and type_name:
         # OLD_/WIP_ types and empty Type Marks: the code is still in the name (OLD_AR_MUR_CV1.01B_...)

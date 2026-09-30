@@ -1,0 +1,1 @@
+tooltip: "Rebuilds the Description of every layered type (walls, floors, ceilings, roofs): keeps the text before 'Composizione:' and rewrites the composition from the real layers with the full material name (the old descriptions cut it with '...') and the thickness in cm. Preview first, then apply in one transaction; JSON log with old and new values in Documents."

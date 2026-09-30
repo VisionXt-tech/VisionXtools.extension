@@ -16,6 +16,8 @@ from Autodesk.Revit.DB import (
     StorageType,
     UnitTypeId,
     UnitUtils,
+    Wall,
+    WallKind,
 )
 
 import bmc_rules as R
@@ -146,6 +148,34 @@ def layer_codes(doc, element_type):
     return codes
 
 
+def in_curtain_wall(element):
+    """True when the element (door, window) is hosted by a curtain wall."""
+    host = getattr(element, "Host", None)
+    return isinstance(host, Wall) and host.WallType.Kind == WallKind.Curtain
+
+
+def host_codes(doc, element):
+    """(Type Mark of the host, Type Mark_thickness of the host) of a hosted element (PIR SPE HOST).
+    ("", None) without host. Hosts without layers (curtain walls, e.g. AR_MUR_CV1.01G_CUR_150) take the
+    thickness from their type name; None when neither exists. The Type Mark is returned as it is:
+    callers check it with R.RE_TYPE_MARK (OLD_ types have "OLD")."""
+    host = getattr(element, "Host", None)
+    host_type = doc.GetElement(host.GetTypeId()) if host is not None else None
+    if host_type is None:
+        return "", None
+    tm = type_mark(host_type)
+    get_cs = getattr(host_type, "GetCompoundStructure", None)
+    cs = get_cs() if get_cs else None
+    if cs is not None:
+        width = to_mm(cs.GetWidth())
+    else:
+        m = R.RE_STRAT_TYPE.match(ename(host_type))
+        width = float(m.group(7)) if m else None
+    if not tm or width is None:
+        return tm, None
+    return tm, R.host_thickness_code(tm, width)
+
+
 def level_name(doc, element):
     """Reference level of an element (LevelId, then the usual level parameters)."""
     level_id = getattr(element, "LevelId", None)
@@ -167,6 +197,43 @@ def level_name(doc, element):
         return None
     level = doc.GetElement(level_id)
     return ename(level) if level is not None else None
+
+
+PREVIEW, APPLY = "Solo anteprima", "Anteprima e applica"
+
+
+def ask_preview_only():
+    """Ask the mode BEFORE computing the preview. A modal WPF dialog (SelectFromList) disables every window of
+    the thread, the pyRevit output window too: the preview cannot be scrolled while the groups are chosen.
+    So the preview is read in a first run and applied in a second one. Returns True for preview only.
+    """
+    from pyrevit import forms, script
+
+    choice = forms.CommandSwitchWindow.show(
+        [PREVIEW, APPLY],
+        # title is required: without it pyRevit master looks up a localized title and its except clause
+        # references wpf.ResourceReferenceKeyNotFoundException, missing in IronPython (AttributeError)
+        title="BMC - anteprima o applica",
+        message="Leggi prima l'anteprima, poi rilancia il comando e scegli '%s'"
+        % APPLY,
+    )
+    if not choice:
+        script.exit()
+    return choice == PREVIEW
+
+
+def end_preview(output, preview_only):
+    """Stop after the preview in preview-only mode: the output window stays free to scroll."""
+    if not preview_only:
+        return
+    from pyrevit import script
+
+    output.print_md("---")
+    output.print_md(
+        "**Solo anteprima: il modello non e' stato modificato.** "
+        "Per applicare rilancia il comando e scegli *%s*." % APPLY
+    )
+    script.exit()
 
 
 def save_log(prefix, data):

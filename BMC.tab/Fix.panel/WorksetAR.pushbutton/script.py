@@ -23,7 +23,14 @@ from pyrevit import forms
 from pyrevit import script
 
 import bmc_rules as R
-from bmc_utils import commit, instances, save_log, workset_name
+from bmc_utils import (
+    ask_preview_only,
+    commit,
+    end_preview,
+    instances,
+    save_log,
+    workset_name,
+)
 
 doc = __revit__.ActiveUIDocument.Document
 output = script.get_output()
@@ -94,6 +101,8 @@ def move(elements, target):
     return moved, not_moved
 
 
+PREVIEW_ONLY = ask_preview_only()
+
 # ---------------------------------------------------------------- plan (read only)
 
 target = by_name(R.WS_MODEL)
@@ -132,6 +141,7 @@ output.print_md(
     "Aree e linee di confine da spostare su `%s`: **%d**" % (R.WS_AREAS, len(areas))
 )
 
+end_preview(output, PREVIEW_ONLY)
 if not merge and target and not areas:
     forms.alert("Workset gia' conformi: niente da fare.", exitscript=True)
 if not forms.alert(

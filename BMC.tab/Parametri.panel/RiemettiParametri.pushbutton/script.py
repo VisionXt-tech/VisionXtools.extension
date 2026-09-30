@@ -28,7 +28,7 @@ from pyrevit import forms
 from pyrevit import script
 
 import bmc_rules as R
-from bmc_utils import commit, idv, save_log
+from bmc_utils import ask_preview_only, commit, end_preview, idv, save_log
 
 doc = __revit__.ActiveUIDocument.Document
 app = __revit__.Application
@@ -104,6 +104,8 @@ def write_value(p, storage, value, conversion=None):
     else:
         raise Exception("tipo di parametro non gestito")
 
+
+PREVIEW_ONLY = ask_preview_only()
 
 # ---------------------------------------------------------------- current state (read only)
 
@@ -271,6 +273,7 @@ if unmanaged:
         "Parametri non gestiti (non nei TXT, non legacy): %s" % ", ".join(unmanaged)
     )
 
+end_preview(output, PREVIEW_ONLY)
 groups = ["%s (%d)" % (a, len(by_action[a])) for a in ACTIONS if by_action[a]]
 if not groups:
     forms.alert("Parametri gia' conformi ai TXT R06: niente da fare.", exitscript=True)

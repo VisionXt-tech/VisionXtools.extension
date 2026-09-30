@@ -25,7 +25,16 @@ from pyrevit import forms
 from pyrevit import script
 
 import bmc_rules as R
-from bmc_utils import commit, idv, instances, level_name, param_state, save_log
+from bmc_utils import (
+    ask_preview_only,
+    commit,
+    end_preview,
+    idv,
+    instances,
+    level_name,
+    param_state,
+    save_log,
+)
 
 doc = __revit__.ActiveUIDocument.Document
 output = script.get_output()
@@ -45,6 +54,8 @@ def room_text(room, bip):
     p = room.get_Parameter(bip)
     return (p.AsString() or "").strip() if p is not None else ""
 
+
+PREVIEW_ONLY = ask_preview_only()
 
 # ---------------------------------------------------------------- plan (read only)
 
@@ -117,6 +128,7 @@ if mismatch:
             "- `%s` su livello `%s` %s" % (number, code, output.linkify(room.Id))
         )
 
+end_preview(output, PREVIEW_ONLY)
 choices = [
     "%s (%d)" % (g, by_group[g])
     for g in ("edificio", "piano", "abbreviazione", "appartamento", "reparto", "scala")
